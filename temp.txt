@@ -1,0 +1,308 @@
+# Book Recommendation System — MERN + LangChain
+
+## Overview
+
+A modular, production-ready book recommendation system that uses explicit user inputs (mood, time of day, weather, age, past reads / ratings, liked sections) plus RAG (LangChain) and traditional signals (collaborative filtering, content-based scoring) to produce timely, personalized book suggestions.
+
+**Goals:**
+
+* Take user-supplied context now (mood) and later replace with ML-inferred signals.
+* also recommended book based on time, weather, and other factors
+* Use embeddings + RAG (LangChain) to retrieve context from book metadata, reviews, and user notes.
+* Store and expose rich user history, liked sections, and profile data.
+
+---
+
+## High-level architecture
+
+1. **Frontend (Next.js + TypeScript + Tailwind)**
+
+   * Routing: Next.js App Router (server and client components) with TypeScript.
+   * Pages / Routes: `/app` layout with routes: `/(public)/discover`, `/book/[id]`, `/profile`, `/history`, `/settings`.
+   * Components: MoodPicker (client), TimeWeatherWidget (client), RecommendationPane (client), BookCard (client), LikesSidebar (client), HistoryTimeline (server/client hybrid), ProfileEditor (client)
+   * Data fetching: prefer Next.js server components for initial data fetching and caching (use `fetch()` with `cache:` options), use React Query or SWR in client components for mutation and realtime updates.
+   * State: global store (Zustand or Redux Toolkit with TypeScript) + React Query for server state and caching. Use ephemeral client state for UI-only concerns.
+
+2. **Backend (Node.js / Express)****
+
+   * Services: Auth, User Profile, Recommendation Engine, Book Catalog, Embeddings / Vector Service, Feedback Collector
+   * LangChain microservice (or module) to handle RAG queries, prompt templates, and retrieval chains
+   * DB: MongoDB for users, books, history, metadata; vector DB (Pinecone / Weaviate / PGVector) for embeddings
+
+---
+
+## Data Models (MongoDB schemas - simplified)
+
+### User
+
+```json
+{
+  _id: ObjectId,
+  email: string,
+  name: string,
+  dob: Date,
+  age: Number, // derived
+  gender?: string,
+  preferences: {
+    favoriteGenres: [String],
+    dislikedGenres: [String],
+    readingSpeed?: { wpm: Number }
+  },
+  likedSections: [
+    {
+      bookId: ObjectId,
+      sectionId?: string,
+      highlightText: string,
+      note?: string,
+      timestamp: Date,
+      tags: [String]
+    }
+  ],
+  pastReads: [
+    {
+      bookId: ObjectId,
+      startedAt: Date,
+      finishedAt?: Date,
+      rating?: Number,
+      review?: string
+    }
+  ],
+  moodHistory: [ { mood: string, at: Date } ],
+  createdAt: Date,
+  updatedAt: Date
+}
+```
+
+### Book
+
+```json
+{
+  _id: ObjectId,
+  title: string,
+  authors: [string],
+  description: string,
+  genres: [string],
+  sections: [ { id: string, title: string, textSnippet: string } ],
+  metadata: { pages: Number, language: string, publishDate: Date },
+  embeddingsId?: string, // reference to vector DB
+  popularity: { reads: Number, likes: Number },
+  createdAt: Date
+}
+```
+
+### RecommendationLog
+
+```json
+{
+  _id: ObjectId,
+  userId: ObjectId,
+  context: { mood, timeOfDay, weather, age, device },
+  recommendations: [ { bookId, rank, score, why: string } ],
+  createdAt: Date
+}
+```
+
+---
+
+## Backend service breakdown
+
+### API Gateway / Auth
+
+* JWT + refresh tokens
+* Endpoints: `/api/auth/login`, `/api/auth/register`, `/api/auth/refresh`
+
+### User Service
+
+* CRUD profile endpoints
+* Endpoints: `/api/users/me`, `/api/users/:id/profile`, `/api/users/me/likes`, `/api/users/me/history`
+* Keeps `likedSections` and `pastReads` maintained
+
+### Book Catalog Service
+
+* Ingest books, update metadata, expose search
+* Endpoints: `/api/books/search`, `/api/books/:id`, `/api/books/:id/sections`
+* Supports full-text index in Mongo and vector search via vector DB
+
+### Recommendation Engine Service
+
+* Core endpoint: `POST /api/recs/generate`
+
+  * Input JSON: `{ userId, mood, timeOfDay, weather, age, deviceContext, constraints }`
+  * Output: ordered list of recommended books with `score`, `explainability` (why recommended), `source` (RAG / CF / heuristic)
+
+* Internals:
+
+  1. Normalize context (map mood -> mood vector or tags; timeOfDay -> morning/afternoon/night)
+  2. Build retrieval query for LangChain using templates (include user recent reads, liked sections snippets)
+  3. Use vector DB to find content-similar books (semantic search)
+  4. Retrieve collaborative signals (other users with similar tastes) -> collaborative filter candidates
+  5. Merge candidate lists, compute hybrid score (weighted sum of semantic similarity, collaborative score, popularity, recency, contextual match like mood/time/weather)
+  6. Rerank with a short LangChain prompt to produce explainable `why` strings (RAG): use user profile + top candidate book metadata + user likedSections
+
+* Feature flags for weights (e.g., boost semantic vs collaborative)
+
+### Embeddings & LangChain Module
+
+* Responsibilities:
+
+  * Create embeddings for book descriptions, sections, user highlights, reviews
+  * Store embeddings in vector DB (Pinecone / Weaviate or a hosted DB)
+  * Expose a retrieval API used by Recommendation Engine
+  * Implement prompt templates and chains (RAG — Retriever + LLM)
+
+* LangChain Patterns:
+
+  * **Retriever -> Reranker Chain**: Retriever finds N candidates; reranker (LLM) returns top-K with reasons.
+  * **Context Augmentation**: Include `user.pastReads` text snippets and `likedSections` to guide the LLM.
+
+---
+
+## Prompt template examples (for LangChain)
+
+**Prompt: `recommend_books_for_context`**
+
+```
+You are a friendly book recommender.
+User profile: {user_name}, age {age}, favorite genres {favoriteGenres}.
+User context: mood={mood}, timeOfDay={timeOfDay}, weather={weather}.
+Recent highlights: {likedSections_snippets}
+Candidate books (title, author, blurb):
+{candidates}
+
+Return the top 5 books ranked for the user. For each book include:
+- title
+- author
+- short reason (1 sentence) tying the recommendation to the user's mood/context
+- confidence score 0-1
+```
+
+Note: Add guardrails to avoid hallucination: instruct LLM not to invent book details — only use provided candidate metadata.
+
+---
+
+## Recommendation scoring — hybrid approach
+
+* `score = w_semantic * semantic_sim + w_cf * cf_score + w_pop * pop_norm + w_recency * recency_score + w_context * context_match`
+* `context_match` computed via simple heuristics (mood->genre mapping, timeOfDay -> length preference) or via an LLM match score.
+* Weights configurable in feature flags and ML-tunable later.
+
+---
+
+## Frontend: Pages & Components
+
+### Pages
+
+* **Discover**: mood/time/weather quick controls + RecommendationPane
+* **Book Detail**: shows book metadata, sections, highlights, similar books, `save section` / `highlight` action
+* **Profile**: edit profile, preferences, age, favorite genres
+* **History**: timeline of past reads, ratings, past moods and their recommendations
+* **Settings**: privacy, account linking (Goodreads), export data
+
+### Core Components
+
+* `MoodPicker` — quick chips (happy, sad, adventurous, sleepy) + custom text
+* `TimeWeatherWidget` — detect time automatically, allow override of weather
+* `RecommendationPane` — receives API results and shows ranked BookCards with `why` explanation and actions (Save, Read Later, Mark as Skipped)
+* `LikedSectionsDrawer` — shows user's saved highlights and lets user attach tags/notes
+* `FeedbackControls` — thumbs up / down to collect explicit feedback for retraining
+
+### State & Data Flow
+
+* Use **React Query** for server state (caching + invalidation)
+* Use  **Redux** for UI state (mood selection, temporary context)
+* Keep a `currentContext` object in local state: `{ mood, timeOfDay, weather, ageOverride? }` and pass to `POST /api/recs/generate`
+
+---
+
+## API Contracts (selected)
+
+**POST /api/recs/generate**
+Request body:
+
+```json
+{
+  "userId": "...",
+  "mood": "reflective",
+  "timeOfDay": "night",
+  "weather": "rainy",
+  "age": 28,
+  "constraints": { "maxLengthPages": 300, "genres": ["sci-fi"] }
+}
+```
+
+Response:
+
+```json
+{
+  "recommendations": [
+    { "bookId": "..", "score": 0.92, "why": "Because you liked contemplative essays and this book has long reflective passages", "source":"rag+cf" }
+  ]
+}
+```
+
+**POST /api/users/me/like-section**
+Request body:
+
+```json
+{ "bookId": "..", "sectionId": "..", "text": "..", "tags": ["melancholy","quotes"] }
+```
+
+---
+
+## User History, Liked Sections & Profile Sections (UX)
+
+### User History
+
+* Timeline view with contextualized events: `recommendation served`, `book started`, `book finished`, `liked section saved`, `rating submitted`.
+* Each event links back to the recommendation that generated it.
+* Backend stores `RecommendationLog` for reproducibility and analytics.
+
+### Liked Sections
+
+* Each liked section stores: `bookId`, `sectionId`, `text`, `contextTags`, `userNote`, `timestamp`.
+* Use liked sections to augment user vector (create a user embedding from concatenated highlights) — improves personalization.
+
+### Profile Sections
+
+* Basic: name, dob/age, language
+* Preferences: favoriteGenres, dislikedGenres, readingGoals (pages/day), formats (audio/text)
+* Privacy: data export / delete
+
+---
+
+## Explainability & Feedback Loop
+
+* Provide short `why` explanations per recommendation generated by the LLM.
+* Capture feedback (`like`, `dislike`, `not interested`) and persist to `User.pastReads` or separate `Feedback` collection.
+* Periodic offline jobs re-train the collaborative model and refresh user vectors.
+
+---
+
+## Implementation roadmap (phases)
+
+1. MVP
+
+   * Core API + simple UI: mood picker, generate recommendations using semantic similarity (embeddings) + heuristics
+   * Save user likes and past reads
+2. Phase 2
+
+   * LangChain RAG integration for explanations
+   * Collaborative filtering and weight tuning
+
+3. Phase 3 (WILL IMPLEMENT LATER< DONT FOUCS ON PHASE 3)
+
+   * Automated mood detection (NLP + sensors), context-aware notifications, multi-modal signals
+   * A/B testing and personalization
+
+---
+
+## Example developer tasks / TODOs
+
+* Setup Node + Express monorepo structure
+* Setup LangChain module with a provider (e.g., OpenAI / Gemini) and vector DB client
+* Create Mongo schemas & indices (text index on `title`, `description` and compound indices for `popularity`)
+* Implement `/api/recs/generate` and local scoring service
+* Frontend: implement MoodPicker + RecommendationPane + history UI
+* Jobs: create embedding generation worker
+
+---
