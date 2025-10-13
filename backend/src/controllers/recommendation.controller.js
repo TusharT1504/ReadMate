@@ -70,7 +70,8 @@ export const generateRecommendations = async (req, res, next) => {
         externalData: {
           title: rec.title,
           authors: rec.authors,
-          googleBooksId: rec.googleBooksId
+          googleBooksId: rec.googleBooksId,
+          coverImage: rec.coverImage
         }
       }))
     });

@@ -6,6 +6,7 @@ import { useAuthStore } from '@/store/authStore';
 import api from '@/lib/api';
 import Navigation from '@/components/Navigation';
 import { format } from 'date-fns';
+import { BookOpen, Star } from 'lucide-react';
 
 export default function HistoryPage() {
   const router = useRouter();
@@ -191,40 +192,77 @@ export default function HistoryPage() {
                   </div>
 
                   <div className="space-y-3">
-                    {log.recommendations.map((rec: any, index: number) => (
-                      <div
-                        key={index}
-                        className="p-4 border border-gray-200 rounded-lg hover:border-purple-300 transition cursor-pointer"
-                        onClick={() =>
-                          router.push(`/book/${rec.bookId?._id || rec.bookId}`)
-                        }
-                      >
-                        <div className="flex gap-3">
-                          <div className="w-8 h-8 bg-purple-100 text-purple-600 rounded-full flex items-center justify-center font-bold text-sm flex-shrink-0">
-                            #{rec.rank}
-                          </div>
-                          <div className="flex-1">
-                            <h4 className="font-semibold text-gray-900">
-                              {rec.bookId?.title || 'Unknown Book'}
-                            </h4>
-                            <p className="text-sm text-gray-600 mb-2">
-                              by {rec.bookId?.authors?.join(', ') || 'Unknown'}
-                            </p>
-                            {rec.why && (
-                              <p className="text-sm text-purple-700 bg-purple-50 px-3 py-2 rounded-lg">
-                                💡 {rec.why}
+                    {log.recommendations.map((rec: any, index: number) => {
+                      // Handle both database books and AI-generated external books
+                      const title = rec.bookId?.title || rec.externalData?.title || 'Unknown Book';
+                      const authors = rec.bookId?.authors || rec.externalData?.authors || [];
+                      const authorString = authors.length > 0 ? authors.join(', ') : 'Unknown Author';
+                      const coverImage = rec.bookId?.metadata?.coverImage || rec.externalData?.coverImage;
+                      const bookLink = rec.bookId?._id 
+                        ? `/book/${rec.bookId._id}` 
+                        : rec.externalData?.googleBooksId 
+                          ? `/book-external/${rec.externalData.googleBooksId}`
+                          : '#';
+
+                      return (
+                        <div
+                          key={index}
+                          className="p-4 border border-gray-200 rounded-lg hover:border-purple-300 hover:shadow-md transition cursor-pointer"
+                          onClick={() => bookLink !== '#' && router.push(bookLink)}
+                        >
+                          <div className="flex gap-4">
+                            {/* Book Cover */}
+                            <div className="flex-shrink-0">
+                              {coverImage ? (
+                                <img
+                                  src={coverImage}
+                                  alt={title}
+                                  className="w-20 h-28 object-cover rounded-lg shadow"
+                                />
+                              ) : (
+                                <div className="w-20 h-28 bg-gradient-to-br from-purple-100 to-blue-100 rounded-lg flex items-center justify-center">
+                                  <BookOpen className="w-8 h-8 text-purple-400" />
+                                </div>
+                              )}
+                            </div>
+
+                            {/* Rank Badge */}
+                            <div className="w-8 h-8 bg-purple-100 text-purple-600 rounded-full flex items-center justify-center font-bold text-sm flex-shrink-0">
+                              #{rec.rank}
+                            </div>
+
+                            {/* Book Info */}
+                            <div className="flex-1 min-w-0">
+                              <h4 className="font-semibold text-gray-900 mb-1">
+                                {title}
+                              </h4>
+                              <p className="text-sm text-gray-600 mb-2">
+                                by {authorString}
                               </p>
-                            )}
-                          </div>
-                          <div className="text-right text-sm">
-                            <div className="text-gray-500">Match</div>
-                            <div className="font-bold text-purple-600">
-                              {(rec.score * 100).toFixed(0)}%
+                              {rec.why && (
+                                <p className="text-sm text-purple-700 bg-purple-50 px-3 py-2 rounded-lg">
+                                  💡 {rec.why}
+                                </p>
+                              )}
+                              {rec.source === 'ai-google-books' && (
+                                <div className="mt-2 inline-flex items-center gap-1 text-xs text-purple-600 bg-purple-50 px-2 py-1 rounded">
+                                  <span>✨</span>
+                                  <span>AI Recommended</span>
+                                </div>
+                              )}
+                            </div>
+
+                            {/* Score */}
+                            <div className="text-right text-sm flex-shrink-0">
+                              <div className="text-gray-500 mb-1">Match</div>
+                              <div className="font-bold text-purple-600 text-lg">
+                                {(rec.score * 100).toFixed(0)}%
+                              </div>
                             </div>
                           </div>
                         </div>
-                      </div>
-                    ))}
+                      );
+                    })}
                   </div>
                 </div>
               ))

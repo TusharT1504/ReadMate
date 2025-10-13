@@ -13,6 +13,7 @@ import bookRoutes from './routes/book.routes.js';
 import recommendationRoutes from './routes/recommendation.routes.js';
 import emotionRoutes from './routes/emotion.routes.js';
 import weatherRoutes from './routes/weather.routes.js';
+import searchRoutes from './routes/search.routes.js';
 
 // Import middleware
 import { errorHandler } from './middleware/errorHandler.js';
@@ -41,6 +42,7 @@ app.use('/api/books', bookRoutes);
 app.use('/api/recs', recommendationRoutes);
 app.use('/api/emotion', emotionRoutes);
 app.use('/api/weather', weatherRoutes);
+app.use('/api/search', searchRoutes);
 
 // Health check
 app.get('/health', (req, res) => {

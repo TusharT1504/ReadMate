@@ -3,7 +3,7 @@
 import { useRouter, usePathname } from "next/navigation"
 import { useAuthStore } from "@/store/authStore"
 import Link from "next/link"
-import { BookOpen, Compass, User, Clock, LogOut } from "lucide-react"
+import { BookOpen, Compass, User, Clock, LogOut, Search } from "lucide-react"
 import api from "@/lib/api"
 
 export default function Navigation() {
@@ -26,6 +26,7 @@ export default function Navigation() {
 
   const navLinks = [
     { href: "/discover", label: "Discover", icon: <Compass className="w-4 h-4" aria-hidden /> },
+    { href: "/search", label: "Search", icon: <Search className="w-4 h-4" aria-hidden /> },
     { href: "/profile", label: "Profile", icon: <User className="w-4 h-4" aria-hidden /> },
     { href: "/history", label: "History", icon: <Clock className="w-4 h-4" aria-hidden /> },
   ]

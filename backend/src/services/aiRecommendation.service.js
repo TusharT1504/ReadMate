@@ -100,10 +100,10 @@ CURRENT CONTEXT:
 INSTRUCTIONS:
 1. Analyze the reading history to understand the user's preferences
 2. Consider the user's age and current context (time, weather, mood)
-3. Recommend 5 books that match their taste and current situation
+3. Recommend 9 books that match their taste and current situation
 4. Provide ONLY the exact book title and author for each recommendation
 5. Format each recommendation as: "Book Title" by Author Name
-6. After the 5 recommendations, add a "REASONING:" section explaining why each book was recommended
+6. After the 9 recommendations, add a "REASONING:" section explaining why each book was recommended
 
 Example format:
 1. "The Midnight Library" by Matt Haig
@@ -111,13 +111,17 @@ Example format:
 3. "Project Hail Mary" by Andy Weir
 4. "The House in the Cerulean Sea" by TJ Klune
 5. "Educated" by Tara Westover
+6. "The Seven Husbands of Evelyn Hugo" by Taylor Jenkins Reid
+7. "Where the Crawdads Sing" by Delia Owens
+8. "Circe" by Madeline Miller
+9. "The Silent Patient" by Alex Michaelides
 
 REASONING:
 1. The Midnight Library - [explanation]
 2. Atomic Habits - [explanation]
 ...
 
-Now provide your 5 recommendations:`;
+Now provide your 9 recommendations:`;
 
     return prompt;
   }
@@ -154,7 +158,7 @@ Now provide your 5 recommendations:`;
         bookTitles.push({ title, author });
 
         // Stop after finding reasoning section
-        if (bookTitles.length >= 5) break;
+        if (bookTitles.length >= 9) break;
       }
     }
 
