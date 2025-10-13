@@ -23,10 +23,10 @@ export default function LoginPage() {
     setLoading(true);
 
     try {
-      const response = await api.post('/auth/login', formData);
-      const { user, token, refreshToken } = response.data.data;
+  const response = await api.post('/auth/login', formData);
+  const { user } = response.data.data;
 
-      setAuth(user, token, refreshToken);
+  setAuth(user);
       router.push('/discover');
     } catch (err: any) {
       setError(err.response?.data?.message || 'Login failed. Please try again.');

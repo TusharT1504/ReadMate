@@ -3,6 +3,7 @@ import Book from '../models/Book.model.js';
 import RecommendationLog from '../models/RecommendationLog.model.js';
 import { AppError } from '../middleware/errorHandler.js';
 import { RecommendationService } from '../services/recommendation.service.js';
+import aiRecommendationService from '../services/aiRecommendation.service.js';
 import { getTimeOfDay, getWeatherInfo } from '../utils/contextHelpers.js';
 
 export const generateRecommendations = async (req, res, next) => {
@@ -49,9 +50,9 @@ export const generateRecommendations = async (req, res, next) => {
       constraints: constraints || {}
     };
 
-    // Generate recommendations using the service
-    const recommendationService = new RecommendationService();
-    const recommendations = await recommendationService.generateRecommendations(
+    // Generate AI-powered recommendations
+    console.log('🤖 Using AI recommendation engine...');
+    const recommendations = await aiRecommendationService.generateRecommendations(
       user,
       context
     );
@@ -61,11 +62,16 @@ export const generateRecommendations = async (req, res, next) => {
       userId,
       context,
       recommendations: recommendations.map((rec, index) => ({
-        bookId: rec.book._id,
+        bookId: null, // External books don't have local ID
         rank: index + 1,
         score: rec.score,
         why: rec.why,
-        source: rec.source
+        source: rec.source,
+        externalData: {
+          title: rec.title,
+          authors: rec.authors,
+          googleBooksId: rec.googleBooksId
+        }
       }))
     });
 
@@ -73,7 +79,19 @@ export const generateRecommendations = async (req, res, next) => {
       success: true,
       data: {
         recommendations: recommendations.map(rec => ({
-          book: rec.book,
+          title: rec.title,
+          authors: rec.authors,
+          description: rec.description,
+          coverImage: rec.coverImage,
+          genres: rec.genres,
+          publishDate: rec.publishDate,
+          pageCount: rec.pageCount,
+          isbn: rec.isbn,
+          averageRating: rec.averageRating,
+          ratingsCount: rec.ratingsCount,
+          googleBooksId: rec.googleBooksId,
+          previewLink: rec.previewLink,
+          infoLink: rec.infoLink,
           score: rec.score,
           why: rec.why,
           source: rec.source

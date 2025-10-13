@@ -26,10 +26,10 @@ export default function RegisterPage() {
     setLoading(true);
 
     try {
-      const response = await api.post('/auth/register', formData);
-      const { user, token, refreshToken } = response.data.data;
+  const response = await api.post('/auth/register', formData);
+  const { user } = response.data.data;
 
-      setAuth(user, token, refreshToken);
+  setAuth(user);
       router.push('/discover');
     } catch (err: any) {
       setError(err.response?.data?.message || 'Registration failed. Please try again.');

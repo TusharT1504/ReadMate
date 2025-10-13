@@ -4,7 +4,7 @@ const recommendationSchema = new mongoose.Schema({
   bookId: {
     type: mongoose.Schema.Types.ObjectId,
     ref: 'Book',
-    required: true
+    required: false // Not required for external books
   },
   rank: {
     type: Number,
@@ -17,8 +17,14 @@ const recommendationSchema = new mongoose.Schema({
   why: String,
   source: {
     type: String,
-    enum: ['semantic', 'collaborative', 'rag', 'hybrid', 'rag+cf', 'heuristic'],
+    enum: ['semantic', 'collaborative', 'rag', 'hybrid', 'rag+cf', 'heuristic', 'ai-google-books'],
     default: 'hybrid'
+  },
+  externalData: {
+    title: String,
+    authors: [String],
+    googleBooksId: String,
+    coverImage: String
   }
 });
 

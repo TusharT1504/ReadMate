@@ -1,5 +1,5 @@
 export interface Book {
-  _id: string;
+  _id?: string; // Optional for external books
   title: string;
   authors: string[];
   description: string;
@@ -9,14 +9,14 @@ export interface Book {
     title: string;
     textSnippet: string;
   }>;
-  metadata: {
+  metadata?: {
     pages?: number;
     language?: string;
     publishDate?: string;
     coverImage?: string;
     isbn?: string;
   };
-  popularity: {
+  popularity?: {
     reads: number;
     likes: number;
     ratings: {
@@ -24,10 +24,35 @@ export interface Book {
       average: number;
     };
   };
+  // Google Books fields
+  googleBooksId?: string;
+  coverImage?: string;
+  publishDate?: string;
+  pageCount?: number;
+  isbn?: string;
+  averageRating?: number;
+  ratingsCount?: number;
+  previewLink?: string;
+  infoLink?: string;
 }
 
 export interface Recommendation {
-  book: Book;
+  book?: Book; // Optional for backward compatibility
+  // AI recommendation fields
+  title?: string;
+  authors?: string[];
+  description?: string;
+  coverImage?: string;
+  genres?: string[];
+  publishDate?: string;
+  pageCount?: number;
+  isbn?: string;
+  averageRating?: number;
+  ratingsCount?: number;
+  googleBooksId?: string;
+  previewLink?: string;
+  infoLink?: string;
+  // Common fields
   score: number;
   why: string;
   source: string;

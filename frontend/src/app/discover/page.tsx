@@ -9,6 +9,7 @@ import type { Recommendation } from "@/types"
 import MoodPicker from "@/components/MoodPicker"
 import TimeWeatherWidget from "@/components/TimeWeatherWidget"
 import BookCard from "@/components/BookCard"
+import AIBookCard from "@/components/AIBookCard"
 import Navigation from "@/components/Navigation"
 import EmotionDetector from "@/components/EmotionDetector"
 
@@ -102,10 +103,16 @@ export default function DiscoverPage() {
         {/* Recommendations Display */}
         {recommendations.length > 0 && (
           <div>
-            <h2 className="text-2xl font-bold mb-6">Recommended for You</h2>
+            <div className="flex items-center justify-between mb-6">
+              <h2 className="text-2xl font-bold">AI-Powered Recommendations</h2>
+              <div className="flex items-center gap-2 text-sm text-muted">
+                <span className="inline-block w-2 h-2 bg-green-500 rounded-full animate-pulse"></span>
+                <span>Powered by Google Gemini</span>
+              </div>
+            </div>
             <div className="grid md:grid-cols-2 lg:grid-cols-3 gap-6">
               {recommendations.map((rec, index) => (
-                <BookCard key={rec.book._id} book={rec.book} recommendation={rec} rank={index + 1} />
+                <AIBookCard key={rec.googleBooksId || index} recommendation={rec} rank={index + 1} />
               ))}
             </div>
           </div>

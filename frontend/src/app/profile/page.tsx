@@ -47,11 +47,7 @@ export default function ProfilePage() {
       
       // Update auth store with new user data
       if (user) {
-        setAuth(
-          { ...user, ...response.data.data.user },
-          localStorage.getItem('token') || '',
-          localStorage.getItem('refreshToken') || ''
-        );
+        setAuth({ ...user, ...response.data.data.user });
       }
 
       setMessage('Profile updated successfully!');

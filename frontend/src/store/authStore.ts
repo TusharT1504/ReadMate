@@ -17,11 +17,9 @@ interface User {
 
 interface AuthState {
   user: User | null;
-  token: string | null;
-  refreshToken: string | null;
   isAuthenticated: boolean;
   isLoading: boolean;
-  setAuth: (user: User, token?: string, refreshToken?: string) => void;
+  setAuth: (user: User) => void;
   clearAuth: () => void;
   checkAuth: () => Promise<void>;
 }
@@ -30,20 +28,15 @@ export const useAuthStore = create<AuthState>()(
   persist(
     (set) => ({
       user: null,
-      token: null,
-      refreshToken: null,
       isAuthenticated: false,
-      isLoading: true,
+      isLoading: false, // Start as false to avoid initial loading flash
       
-      setAuth: (user, token, refreshToken) => {
-        // Tokens are now in HTTP-only cookies, but keep fallback for compatibility
-        if (token && typeof window !== 'undefined') {
-          localStorage.setItem('token', token);
+      setAuth: (user) => {
+        if (typeof window !== 'undefined') {
+          localStorage.removeItem('token');
+          localStorage.removeItem('refreshToken');
         }
-        if (refreshToken && typeof window !== 'undefined') {
-          localStorage.setItem('refreshToken', refreshToken);
-        }
-        set({ user, token, refreshToken, isAuthenticated: true, isLoading: false });
+        set({ user, isAuthenticated: true, isLoading: false });
       },
       
       clearAuth: () => {
@@ -51,7 +44,7 @@ export const useAuthStore = create<AuthState>()(
           localStorage.removeItem('token');
           localStorage.removeItem('refreshToken');
         }
-        set({ user: null, token: null, refreshToken: null, isAuthenticated: false, isLoading: false });
+        set({ user: null, isAuthenticated: false, isLoading: false });
       },
       
       // Check if user is authenticated (via cookies)
@@ -63,17 +56,19 @@ export const useAuthStore = create<AuthState>()(
           const user = response.data.data.user;
           set({ user, isAuthenticated: true, isLoading: false });
         } catch (error) {
-          // Not authenticated or token expired
-          set({ user: null, isAuthenticated: false, isLoading: false });
+          // Not authenticated or token expired - silently fail
           if (typeof window !== 'undefined') {
             localStorage.removeItem('token');
             localStorage.removeItem('refreshToken');
           }
+          set({ user: null, isAuthenticated: false, isLoading: false });
         }
       },
     }),
     {
       name: 'auth-storage',
+      // Only persist the user object, not auth state flags
+      partialize: (state) => ({ user: state.user }),
     }
   )
 );

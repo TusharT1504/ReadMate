@@ -44,10 +44,12 @@ export const register = async (req, res, next) => {
     await user.save();
 
     // Set tokens in HTTP-only cookies
+    const isProduction = process.env.NODE_ENV === 'production';
     const cookieOptions = {
       httpOnly: true,
-      secure: process.env.NODE_ENV === 'production',
-      sameSite: 'strict',
+      secure: isProduction,
+      sameSite: isProduction ? 'none' : 'lax',
+      path: '/',
       maxAge: 7 * 24 * 60 * 60 * 1000 // 7 days
     };
 
@@ -107,10 +109,12 @@ export const login = async (req, res, next) => {
     user.password = undefined;
 
     // Set tokens in HTTP-only cookies
+    const isProduction = process.env.NODE_ENV === 'production';
     const cookieOptions = {
       httpOnly: true,
-      secure: process.env.NODE_ENV === 'production',
-      sameSite: 'strict',
+      secure: isProduction,
+      sameSite: isProduction ? 'none' : 'lax',
+      path: '/',
       maxAge: 7 * 24 * 60 * 60 * 1000 // 7 days
     };
 
@@ -140,7 +144,17 @@ export const refreshToken = async (req, res, next) => {
     const refreshToken = req.cookies.refreshToken || req.body.refreshToken;
 
     if (!refreshToken) {
-      throw new AppError('Refresh token required', 400);
+      const isProduction = process.env.NODE_ENV === 'production';
+      const clearOptions = {
+        httpOnly: true,
+        secure: isProduction,
+        sameSite: isProduction ? 'none' : 'lax',
+        path: '/'
+      };
+
+      res.clearCookie('token', clearOptions);
+      res.clearCookie('refreshToken', clearOptions);
+      throw new AppError('Refresh token required', 401);
     }
 
     // Verify refresh token
@@ -149,6 +163,14 @@ export const refreshToken = async (req, res, next) => {
     // Find user
     const user = await User.findById(decoded.id);
     if (!user || user.refreshToken !== refreshToken) {
+      const clearOptions = {
+        httpOnly: true,
+        secure: process.env.NODE_ENV === 'production',
+        sameSite: process.env.NODE_ENV === 'production' ? 'none' : 'lax',
+        path: '/'
+      };
+      res.clearCookie('token', clearOptions);
+      res.clearCookie('refreshToken', clearOptions);
       throw new AppError('Invalid refresh token', 401);
     }
 
@@ -161,10 +183,12 @@ export const refreshToken = async (req, res, next) => {
     await user.save();
 
     // Set new tokens in cookies
+    const isProduction = process.env.NODE_ENV === 'production';
     const cookieOptions = {
       httpOnly: true,
-      secure: process.env.NODE_ENV === 'production',
-      sameSite: 'strict',
+      secure: isProduction,
+      sameSite: isProduction ? 'none' : 'lax',
+      path: '/',
       maxAge: 7 * 24 * 60 * 60 * 1000 // 7 days
     };
 
@@ -193,8 +217,16 @@ export const logout = async (req, res, next) => {
     await user.save();
 
     // Clear cookies
-    res.clearCookie('token');
-    res.clearCookie('refreshToken');
+    const isProduction = process.env.NODE_ENV === 'production';
+    const clearOptions = {
+      httpOnly: true,
+      secure: isProduction,
+      sameSite: isProduction ? 'none' : 'lax',
+      path: '/'
+    };
+
+    res.clearCookie('token', clearOptions);
+    res.clearCookie('refreshToken', clearOptions);
 
     res.json({
       success: true,
