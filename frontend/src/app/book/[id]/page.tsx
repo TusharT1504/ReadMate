@@ -111,16 +111,27 @@ export default function BookDetailPage({ params }: { params: { id: string } }) {
           {/* Book Cover */}
           <div className="lg:col-span-1">
             <div className="glass p-6 sticky top-6">
-              <div
-                className="aspect-[2/3] rounded-lg flex items-center justify-center text-white mb-4"
-                style={{ backgroundImage: "linear-gradient(135deg, var(--color-primary), var(--color-accent))" }}
-              >
-                <div className="text-center px-4">
-                  <div className="text-6xl mb-4" aria-hidden>
-                    📚
+              <div className="aspect-[2/3] rounded-lg overflow-hidden mb-4 bg-gradient-to-br from-purple-500 to-indigo-600">
+                {book.metadata?.coverImage ? (
+                  <img
+                    src={book.metadata.coverImage}
+                    alt={`${book.title} cover`}
+                    className="w-full h-full object-cover"
+                    onError={(e) => {
+                      e.currentTarget.style.display = 'none';
+                    }}
+                  />
+                ) : (
+                  // Fallback placeholder
+                  <div className="w-full h-full flex items-center justify-center text-white">
+                    <div className="text-center px-4">
+                      <div className="text-6xl mb-4" aria-hidden>
+                        📚
+                      </div>
+                      <p className="text-lg font-medium">{book.title}</p>
+                    </div>
                   </div>
-                  <p className="text-lg font-medium">{book.title}</p>
-                </div>
+                )}
               </div>
 
               <div className="space-y-3 text-sm">

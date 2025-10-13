@@ -43,6 +43,20 @@ export const register = async (req, res, next) => {
     user.refreshToken = refreshToken;
     await user.save();
 
+    // Set tokens in HTTP-only cookies
+    const cookieOptions = {
+      httpOnly: true,
+      secure: process.env.NODE_ENV === 'production',
+      sameSite: 'strict',
+      maxAge: 7 * 24 * 60 * 60 * 1000 // 7 days
+    };
+
+    res.cookie('token', token, cookieOptions);
+    res.cookie('refreshToken', refreshToken, {
+      ...cookieOptions,
+      maxAge: 30 * 24 * 60 * 60 * 1000 // 30 days
+    });
+
     res.status(201).json({
       success: true,
       message: 'User registered successfully',
@@ -92,6 +106,20 @@ export const login = async (req, res, next) => {
     // Remove password from response
     user.password = undefined;
 
+    // Set tokens in HTTP-only cookies
+    const cookieOptions = {
+      httpOnly: true,
+      secure: process.env.NODE_ENV === 'production',
+      sameSite: 'strict',
+      maxAge: 7 * 24 * 60 * 60 * 1000 // 7 days
+    };
+
+    res.cookie('token', token, cookieOptions);
+    res.cookie('refreshToken', refreshToken, {
+      ...cookieOptions,
+      maxAge: 30 * 24 * 60 * 60 * 1000 // 30 days
+    });
+
     res.json({
       success: true,
       message: 'Login successful',
@@ -108,7 +136,8 @@ export const login = async (req, res, next) => {
 
 export const refreshToken = async (req, res, next) => {
   try {
-    const { refreshToken } = req.body;
+    // Get refresh token from cookie or body (fallback for mobile)
+    const refreshToken = req.cookies.refreshToken || req.body.refreshToken;
 
     if (!refreshToken) {
       throw new AppError('Refresh token required', 400);
@@ -131,6 +160,20 @@ export const refreshToken = async (req, res, next) => {
     user.refreshToken = newRefreshToken;
     await user.save();
 
+    // Set new tokens in cookies
+    const cookieOptions = {
+      httpOnly: true,
+      secure: process.env.NODE_ENV === 'production',
+      sameSite: 'strict',
+      maxAge: 7 * 24 * 60 * 60 * 1000 // 7 days
+    };
+
+    res.cookie('token', newToken, cookieOptions);
+    res.cookie('refreshToken', newRefreshToken, {
+      ...cookieOptions,
+      maxAge: 30 * 24 * 60 * 60 * 1000 // 30 days
+    });
+
     res.json({
       success: true,
       data: {
@@ -149,9 +192,33 @@ export const logout = async (req, res, next) => {
     user.refreshToken = undefined;
     await user.save();
 
+    // Clear cookies
+    res.clearCookie('token');
+    res.clearCookie('refreshToken');
+
     res.json({
       success: true,
       message: 'Logged out successfully'
+    });
+  } catch (error) {
+    next(error);
+  }
+};
+
+/**
+ * Get current authenticated user
+ */
+export const getCurrentUser = async (req, res, next) => {
+  try {
+    const user = await User.findById(req.user._id);
+    
+    if (!user) {
+      throw new AppError('User not found', 404);
+    }
+
+    res.json({
+      success: true,
+      data: { user }
     });
   } catch (error) {
     next(error);

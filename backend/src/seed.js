@@ -1,6 +1,7 @@
 import mongoose from 'mongoose';
 import dotenv from 'dotenv';
 import Book from './models/Book.model.js';
+import googleBooksService from './services/googleBooks.service.js';
 
 dotenv.config();
 
@@ -229,7 +230,24 @@ async function seedDatabase() {
     await Book.deleteMany({});
     console.log('🗑️  Cleared existing books');
 
-    // Insert sample books
+    // Fetch cover images from Google Books for each book
+    console.log('🔍 Fetching cover images from Google Books...');
+    for (const book of sampleBooks) {
+      const author = book.authors[0];
+      const coverImage = await googleBooksService.getCoverImageByTitle(
+        book.title,
+        author
+      );
+      
+      if (coverImage) {
+        book.metadata.coverImage = coverImage;
+        console.log(`✅ Found cover for: ${book.title}`);
+      } else {
+        console.log(`⚠️  No cover found for: ${book.title}`);
+      }
+    }
+
+    // Insert sample books with cover images
     await Book.insertMany(sampleBooks);
     console.log(`✅ Seeded ${sampleBooks.length} books`);
 

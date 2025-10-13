@@ -10,6 +10,7 @@ import MoodPicker from "@/components/MoodPicker"
 import TimeWeatherWidget from "@/components/TimeWeatherWidget"
 import BookCard from "@/components/BookCard"
 import Navigation from "@/components/Navigation"
+import EmotionDetector from "@/components/EmotionDetector"
 
 export default function DiscoverPage() {
   const router = useRouter()
@@ -65,8 +66,15 @@ export default function DiscoverPage() {
 
         {/* Context Selection */}
         <div className="grid lg:grid-cols-3 gap-6 mb-8">
-          <div className="lg:col-span-2 glass p-4">
-            <MoodPicker />
+          <div className="lg:col-span-2 space-y-6">
+            <div className="glass p-4">
+              <MoodPicker />
+            </div>
+            <EmotionDetector
+              onMoodDetected={(mood) => {
+                useRecommendationStore.getState().setMood(mood)
+              }}
+            />
           </div>
           <div className="glass p-4">
             <TimeWeatherWidget />

@@ -1,5 +1,6 @@
 import Book from '../models/Book.model.js';
 import { AppError } from '../middleware/errorHandler.js';
+import googleBooksService from '../services/googleBooks.service.js';
 
 export const searchBooks = async (req, res, next) => {
   try {
@@ -120,11 +121,100 @@ export const createBook = async (req, res, next) => {
   try {
     const bookData = req.body;
 
+    // Auto-fetch cover image from Google Books if not provided
+    if (!bookData.metadata?.coverImage) {
+      console.log(`🔍 Fetching cover image for: ${bookData.title}`);
+      
+      const author = bookData.authors?.[0];
+      const coverImage = await googleBooksService.getCoverImageByTitle(
+        bookData.title, 
+        author
+      );
+
+      if (coverImage) {
+        console.log(`✅ Found cover image: ${coverImage}`);
+        if (!bookData.metadata) {
+          bookData.metadata = {};
+        }
+        bookData.metadata.coverImage = coverImage;
+      } else {
+        console.log(`⚠️  No cover image found for: ${bookData.title}`);
+      }
+    }
+
     const book = await Book.create(bookData);
 
     res.status(201).json({
       success: true,
       message: 'Book created successfully',
+      data: { book }
+    });
+  } catch (error) {
+    next(error);
+  }
+};
+
+/**
+ * Search Google Books and get book info including cover image
+ */
+export const searchGoogleBooks = async (req, res, next) => {
+  try {
+    const { title, author, isbn } = req.query;
+
+    if (!title && !isbn) {
+      throw new AppError('Title or ISBN is required', 400);
+    }
+
+    let bookInfo;
+    
+    if (isbn) {
+      bookInfo = await googleBooksService.searchByISBN(isbn);
+    } else if (author) {
+      bookInfo = await googleBooksService.searchByTitleAndAuthor(title, author);
+    } else {
+      bookInfo = await googleBooksService.searchByTitle(title);
+    }
+
+    if (!bookInfo) {
+      throw new AppError('Book not found in Google Books', 404);
+    }
+
+    res.json({
+      success: true,
+      data: { book: bookInfo }
+    });
+  } catch (error) {
+    next(error);
+  }
+};
+
+/**
+ * Update book cover image from Google Books
+ */
+export const updateBookCover = async (req, res, next) => {
+  try {
+    const book = await Book.findById(req.params.id);
+
+    if (!book) {
+      throw new AppError('Book not found', 404);
+    }
+
+    const author = book.authors?.[0];
+    const coverImage = await googleBooksService.getCoverImageByTitle(
+      book.title,
+      author
+    );
+
+    if (!coverImage) {
+      throw new AppError('Cover image not found in Google Books', 404);
+    }
+
+    book.metadata.coverImage = coverImage;
+    await book.save();
+
+    res.json({
+      success: true,
+      message: 'Cover image updated successfully',
       data: { book }
     });
   } catch (error) {

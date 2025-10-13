@@ -34,21 +34,37 @@ export default function BookCard({ book, recommendation, rank }: BookCardProps) 
         </div>
       )}
 
-      {/* Book Cover Placeholder */}
-      <div
-        className="h-48 flex items-center justify-center text-white relative"
-        style={{ backgroundImage: "linear-gradient(135deg, var(--color-primary), var(--color-accent))" }}
-      >
-        <div
-          className="absolute inset-0 opacity-20 bg-[radial-gradient(1000px_200px_at_0%_0%,white,transparent)]"
-          aria-hidden
-        />
-        <div className="text-center px-4">
-          <div className="text-4xl mb-2" aria-hidden>
-            📚
+      {/* Book Cover */}
+      <div className="h-48 relative overflow-hidden bg-gradient-to-br from-purple-500 to-indigo-600">
+        {book.metadata?.coverImage ? (
+          <>
+            <img
+              src={book.metadata.coverImage}
+              alt={`${book.title} cover`}
+              className="w-full h-full object-cover transition-transform duration-300 group-hover:scale-110"
+              onError={(e) => {
+                // Fallback to placeholder on image error
+                e.currentTarget.style.display = 'none';
+              }}
+            />
+            {/* Gradient overlay for text readability */}
+            <div className="absolute inset-0 bg-gradient-to-t from-black/60 via-transparent to-transparent" />
+          </>
+        ) : (
+          // Fallback placeholder
+          <div className="h-full flex items-center justify-center text-white">
+            <div
+              className="absolute inset-0 opacity-20 bg-[radial-gradient(1000px_200px_at_0%_0%,white,transparent)]"
+              aria-hidden
+            />
+            <div className="text-center px-4 relative z-10">
+              <div className="text-4xl mb-2" aria-hidden>
+                📚
+              </div>
+              <p className="text-sm font-medium line-clamp-2">{book.title}</p>
+            </div>
           </div>
-          <p className="text-sm font-medium line-clamp-2">{book.title}</p>
-        </div>
+        )}
       </div>
 
       {/* Book Info */}

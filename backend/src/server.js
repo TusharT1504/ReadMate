@@ -4,12 +4,15 @@ import cors from 'cors';
 import helmet from 'helmet';
 import morgan from 'morgan';
 import dotenv from 'dotenv';
+import cookieParser from 'cookie-parser';
 
 // Import routes
 import authRoutes from './routes/auth.routes.js';
 import userRoutes from './routes/user.routes.js';
 import bookRoutes from './routes/book.routes.js';
 import recommendationRoutes from './routes/recommendation.routes.js';
+import emotionRoutes from './routes/emotion.routes.js';
+import weatherRoutes from './routes/weather.routes.js';
 
 // Import middleware
 import { errorHandler } from './middleware/errorHandler.js';
@@ -27,6 +30,7 @@ app.use(cors({
   credentials: true
 }));
 app.use(morgan('dev'));
+app.use(cookieParser()); // Parse cookies
 app.use(express.json());
 app.use(express.urlencoded({ extended: true }));
 
@@ -35,6 +39,8 @@ app.use('/api/auth', authRoutes);
 app.use('/api/users', userRoutes);
 app.use('/api/books', bookRoutes);
 app.use('/api/recs', recommendationRoutes);
+app.use('/api/emotion', emotionRoutes);
+app.use('/api/weather', weatherRoutes);
 
 // Health check
 app.get('/health', (req, res) => {

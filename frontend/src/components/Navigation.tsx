@@ -4,15 +4,24 @@ import { useRouter, usePathname } from "next/navigation"
 import { useAuthStore } from "@/store/authStore"
 import Link from "next/link"
 import { BookOpen, Compass, User, Clock, LogOut } from "lucide-react"
+import api from "@/lib/api"
 
 export default function Navigation() {
   const router = useRouter()
   const pathname = usePathname()
   const { isAuthenticated, user, clearAuth } = useAuthStore()
 
-  const handleLogout = () => {
-    clearAuth()
-    router.push("/")
+  const handleLogout = async () => {
+    try {
+      // Call logout endpoint to clear cookies on server
+      await api.post('/auth/logout');
+    } catch (error) {
+      console.error('Logout error:', error);
+    } finally {
+      // Clear local auth state regardless of API call success
+      clearAuth();
+      router.push('/');
+    }
   }
 
   const navLinks = [
