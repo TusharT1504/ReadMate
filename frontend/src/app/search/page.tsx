@@ -113,11 +113,13 @@ export default function SearchPage() {
               placeholder="Search by book title, author, or keyword..."
               className="w-full px-6 py-4 pr-32 text-lg border border-gray-300 rounded-xl focus:ring-2 focus:ring-purple-600 focus:border-transparent shadow-sm"
               disabled={loading}
+              suppressHydrationWarning
             />
             <button
               type="submit"
               disabled={loading}
               className="absolute right-2 top-1/2 -translate-y-1/2 px-6 py-2 bg-purple-600 text-white rounded-lg hover:bg-purple-700 transition disabled:opacity-50 disabled:cursor-not-allowed flex items-center gap-2"
+              suppressHydrationWarning
             >
               {loading ? (
                 <>

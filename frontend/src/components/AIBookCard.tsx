@@ -1,8 +1,11 @@
 "use client"
 
+import { useState } from "react"
+import { useRouter } from "next/navigation"
 import type { Recommendation } from "@/types"
-import { ExternalLink, Star, BookOpen, Heart } from "lucide-react"
+import { ExternalLink, Star, BookOpen, Heart, MessageCircle } from "lucide-react"
 import { useAuthStore } from "@/store/authStore"
+import BookChatModal from "./BookChatModal"
 
 interface AIBookCardProps {
   recommendation: Recommendation
@@ -10,7 +13,9 @@ interface AIBookCardProps {
 }
 
 export default function AIBookCard({ recommendation, rank }: AIBookCardProps) {
+  const router = useRouter()
   const { user, toggleFavorite } = useAuthStore()
+  const [isChatOpen, setIsChatOpen] = useState(false)
   const {
     title,
     authors,
@@ -49,41 +54,50 @@ export default function AIBookCard({ recommendation, rank }: AIBookCardProps) {
     }
   }
 
+  const handleChat = (e: React.MouseEvent) => {
+    e.stopPropagation()
+    setIsChatOpen(true)
+  }
+
+  const handleCardClick = () => {
+    if (recommendation.googleBooksId) {
+      router.push(`/book-external/${recommendation.googleBooksId}`)
+    }
+  }
+
   return (
-    <div
-      className="relative glass hover-lift overflow-hidden group"
-      role="article"
-      aria-label={`Recommendation: ${title}`}
-    >
-      {/* Favorite Button */}
-      <button
-        onClick={handleFavorite}
-        className="absolute top-14 right-4 z-20 p-2 rounded-full bg-white/80 hover:bg-white shadow-sm transition-all hover:scale-110 opacity-0 group-hover:opacity-100"
-        aria-label={isFavorite ? "Remove from favorites" : "Add to favorites"}
-      >
-        <Heart 
-          className={`w-5 h-5 ${isFavorite ? "fill-red-500 text-red-500" : "text-gray-600"}`} 
-        />
-      </button>
-
-      {/* Rank Badge */}
+    <>
       <div
-        className="absolute top-4 left-4 w-10 h-10 text-white rounded-full flex items-center justify-center font-bold z-10 shadow-sm"
-        style={{ backgroundImage: "linear-gradient(135deg, var(--color-primary), var(--color-accent))" }}
+        onClick={handleCardClick}
+        className="relative glass hover-lift overflow-hidden group cursor-pointer border border-gray-200"
+        role="button"
+        aria-label={`View details for ${title}`}
       >
-        #{rank}
-      </div>
+        {/* Action Buttons */}
+        <div className="absolute top-4 right-4 z-20 flex gap-2">
+          <button
+            onClick={handleChat}
+            className="p-2 rounded-full bg-white/90 hover:bg-white shadow-md transition-all hover:scale-110"
+            aria-label="Chat with book"
+            title="Chat with this book"
+          >
+            <MessageCircle className="w-5 h-5 text-purple-600" />
+          </button>
 
-      {/* AI Badge */}
-      <div className="absolute top-4 right-4 z-10">
-        <div className="bg-gradient-to-r from-purple-500 to-pink-500 text-white px-3 py-1 rounded-full text-xs font-semibold shadow-lg flex items-center gap-1">
-          <span>✨</span>
-          <span>AI Recommended</span>
+          <button
+            onClick={handleFavorite}
+            className="p-2 rounded-full bg-white/80 hover:bg-white shadow-sm transition-all hover:scale-110"
+            aria-label={isFavorite ? "Remove from favorites" : "Add to favorites"}
+            title={isFavorite ? "Remove from favorites" : "Add to favorites"}
+          >
+            <Heart 
+              className={`w-5 h-5 ${isFavorite ? "fill-red-500 text-red-500" : "text-gray-600"}`} 
+            />
+          </button>
         </div>
-      </div>
 
       {/* Book Cover */}
-      <div className="h-48 relative overflow-hidden bg-gradient-to-br from-purple-500 to-indigo-600">
+      <div className="h-40 relative overflow-hidden bg-gradient-to-br from-purple-500 to-indigo-600">
         {coverImage ? (
           <>
             <img
@@ -109,15 +123,15 @@ export default function AIBookCard({ recommendation, rank }: AIBookCardProps) {
       </div>
 
       {/* Book Info */}
-      <div className="p-5">
-        <h3 className="text-lg font-semibold mb-1 line-clamp-2 group-hover:text-primary transition-colors">
+      <div className="p-4">
+        <h3 className="text-base font-semibold mb-1 line-clamp-2 group-hover:text-primary transition-colors">
           {title}
         </h3>
-        <p className="text-sm text-muted mb-3">by {authors?.join(", ")}</p>
+        <p className="text-xs text-muted mb-2">by {authors?.join(", ")}</p>
 
         {/* Genres */}
         {genres && genres.length > 0 && (
-          <div className="flex flex-wrap gap-2 mb-3">
+          <div className="flex flex-wrap gap-1.5 mb-2">
             {genres.slice(0, 5).map((genre, index) => (
               <span key={index} className="badge">
                 {genre}
@@ -127,10 +141,10 @@ export default function AIBookCard({ recommendation, rank }: AIBookCardProps) {
         )}
 
         {/* Description */}
-        <p className="text-sm text-muted line-clamp-3 mb-3">{description}</p>
+        <p className="text-xs text-muted line-clamp-2 mb-2">{description}</p>
 
         {/* Rating & Pages */}
-        <div className="flex items-center gap-4 mb-3 text-sm">
+        <div className="flex items-center gap-3 mb-2 text-xs">
           {averageRating && (
             <div className="flex items-center gap-1">
               <Star className="w-4 h-4 text-accent fill-current" />
@@ -146,20 +160,6 @@ export default function AIBookCard({ recommendation, rank }: AIBookCardProps) {
           )}
         </div>
 
-        {/* AI Explanation */}
-        <div className="pt-3 border-t border-white/20 mb-3">
-          <p
-            className="text-sm px-3 py-2 rounded-lg"
-            style={{ backgroundColor: "rgba(139, 92, 246, 0.08)", color: "var(--color-primary)" }}
-          >
-            💡 {why}
-          </p>
-          <div className="mt-2 flex items-center justify-between text-xs">
-            <span className="text-muted">AI Match</span>
-            <span className="font-medium text-primary">{(score * 100).toFixed(0)}%</span>
-          </div>
-        </div>
-
         {/* Action Buttons */}
         <div className="flex gap-2">
           {previewLink && (
@@ -167,7 +167,7 @@ export default function AIBookCard({ recommendation, rank }: AIBookCardProps) {
               href={previewLink}
               target="_blank"
               rel="noopener noreferrer"
-              className="flex-1 btn-secondary text-sm py-2 flex items-center justify-center gap-2"
+              className="flex-1 btn-secondary text-xs py-1.5 flex items-center justify-center gap-1.5"
             >
               <BookOpen className="w-4 h-4" />
               Preview
@@ -178,7 +178,7 @@ export default function AIBookCard({ recommendation, rank }: AIBookCardProps) {
               href={infoLink}
               target="_blank"
               rel="noopener noreferrer"
-              className="flex-1 btn-primary text-sm py-2 flex items-center justify-center gap-2"
+              className="flex-1 btn-primary text-xs py-1.5 flex items-center justify-center gap-1.5"
             >
               <ExternalLink className="w-4 h-4" />
               View Details
@@ -187,5 +187,13 @@ export default function AIBookCard({ recommendation, rank }: AIBookCardProps) {
         </div>
       </div>
     </div>
+
+    <BookChatModal
+      isOpen={isChatOpen}
+      onClose={() => setIsChatOpen(false)}
+      bookTitle={title || "Unknown Book"}
+      authors={authors || []}
+    />
+    </>
   );
 }

@@ -1,6 +1,6 @@
 "use client"
 
-import { useState, useEffect } from "react"
+import { useState, useEffect, useRef } from "react"
 import { useRouter } from "next/navigation"
 import { useAuthStore } from "@/store/authStore"
 import { useRecommendationStore } from "@/store/recommendationStore"
@@ -16,19 +16,38 @@ import EmotionDetector from "@/components/EmotionDetector"
 export default function DiscoverPage() {
   const router = useRouter()
   const { isAuthenticated, user } = useAuthStore()
-  const { context } = useRecommendationStore()
-  const [recommendations, setRecommendations] = useState<Recommendation[]>([])
+  const { context, recommendations, hasInitialized, setRecommendations, setHasInitialized } = useRecommendationStore()
   const [loading, setLoading] = useState(false)
   const [error, setError] = useState("")
+  const lastContextRef = useRef<string>("")
 
   useEffect(() => {
     if (!isAuthenticated) {
       router.push("/login")
-    } else {
-      // Fetch initial random recommendations
+    } else if (!hasInitialized) {
+      // Only fetch initial recommendations once (stored in global state)
       handleGetRecommendations(true)
+      setHasInitialized(true)
     }
-  }, [isAuthenticated, router])
+  }, [isAuthenticated, router, hasInitialized])
+
+  // Watch for context changes
+  useEffect(() => {
+    if (!isAuthenticated || !hasInitialized) return
+
+    const currentContext = JSON.stringify({
+      mood: context.mood,
+      timeOfDay: context.timeOfDay,
+      weather: context.weather
+    })
+
+    // Only fetch if context has actually changed (skip initial empty context)
+    if (lastContextRef.current && lastContextRef.current !== currentContext) {
+      handleGetRecommendations(false)
+    }
+
+    lastContextRef.current = currentContext
+  }, [context.mood, context.timeOfDay, context.weather])
 
   const handleGetRecommendations = async (isInitial = false, moodOverride?: string) => {
     const moodToUse = moodOverride || context.mood
@@ -114,11 +133,8 @@ export default function DiscoverPage() {
         {recommendations.length > 0 && (
           <div>
             <div className="flex items-center justify-between mb-6">
-              <h2 className="text-2xl font-bold">AI-Powered Recommendations</h2>
-              <div className="flex items-center gap-2 text-sm text-muted">
-                <span className="inline-block w-2 h-2 bg-green-500 rounded-full animate-pulse"></span>
-                <span>Powered by Google Gemini</span>
-              </div>
+              <h2 className="text-2xl font-bold">Recommendations</h2>
+            
             </div>
             <div className="grid md:grid-cols-2 lg:grid-cols-3 gap-6">
               {recommendations.map((rec, index) => (

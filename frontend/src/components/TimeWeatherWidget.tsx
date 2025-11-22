@@ -2,21 +2,22 @@
 
 import { useRecommendationStore } from '@/store/recommendationStore';
 import { useEffect, useState } from 'react';
+import { Sunrise, Sun, Sunset, Moon, CloudSun, Cloud, CloudRain, CloudSnow, CloudLightning } from 'lucide-react';
 import api from '@/lib/api';
 
 const TIME_OPTIONS = [
-  { value: 'morning', label: 'Morning', emoji: '🌅' },
-  { value: 'afternoon', label: 'Afternoon', emoji: '☀️' },
-  { value: 'evening', label: 'Evening', emoji: '🌆' },
-  { value: 'night', label: 'Night', emoji: '🌙' },
+  { value: 'morning', label: 'Morning', icon: Sunrise, gradient: 'from-orange-400 to-yellow-400' },
+  { value: 'afternoon', label: 'Afternoon', icon: Sun, gradient: 'from-yellow-400 to-orange-400' },
+  { value: 'evening', label: 'Evening', icon: Sunset, gradient: 'from-orange-400 to-pink-400' },
+  { value: 'night', label: 'Night', icon: Moon, gradient: 'from-indigo-400 to-purple-400' },
 ];
 
 const WEATHER_OPTIONS = [
-  { value: 'sunny', label: 'Sunny', emoji: '☀️' },
-  { value: 'cloudy', label: 'Cloudy', emoji: '☁️' },
-  { value: 'rainy', label: 'Rainy', emoji: '🌧️' },
-  { value: 'snowy', label: 'Snowy', emoji: '❄️' },
-  { value: 'stormy', label: 'Stormy', emoji: '⛈️' },
+  { value: 'sunny', label: 'Sunny', icon: Sun, gradient: 'from-yellow-400 to-orange-400' },
+  { value: 'cloudy', label: 'Cloudy', icon: Cloud, gradient: 'from-gray-400 to-slate-400' },
+  { value: 'rainy', label: 'Rainy', icon: CloudRain, gradient: 'from-blue-400 to-cyan-400' },
+  { value: 'snowy', label: 'Snowy', icon: CloudSnow, gradient: 'from-cyan-400 to-blue-400' },
+  { value: 'stormy', label: 'Stormy', icon: CloudLightning, gradient: 'from-purple-400 to-indigo-400' },
 ];
 
 export default function TimeWeatherWidget() {
@@ -112,20 +113,29 @@ export default function TimeWeatherWidget() {
           )}
         </div>
         <div className="grid grid-cols-4 gap-1.5">
-          {TIME_OPTIONS.map((option) => (
-            <button
-              key={option.value}
-              onClick={() => handleTimeChange(option.value)}
-              className={`py-1.5 px-1 rounded-md text-xs transition-all flex flex-col items-center gap-1 ${
-                context.timeOfDay === option.value
-                  ? 'bg-purple-100 text-purple-700 ring-1 ring-purple-500'
-                  : 'bg-gray-50 text-gray-600 hover:bg-gray-100'
-              }`}
-            >
-              <span>{option.emoji}</span>
-              <span className="text-[10px]">{option.label}</span>
-            </button>
-          ))}
+          {TIME_OPTIONS.map((option) => {
+            const Icon = option.icon;
+            return (
+              <button
+                key={option.value}
+                onClick={() => handleTimeChange(option.value)}
+                className={`py-1.5 px-1 rounded-md text-xs transition-all flex flex-col items-center gap-1 border relative overflow-hidden ${
+                  context.timeOfDay === option.value
+                    ? 'border-white/50 ring-2 ring-offset-1 ring-purple-500 shadow-md text-white'
+                    : 'bg-white/80 border-gray-200 text-gray-600 hover:border-gray-300 hover:shadow-sm hover:scale-105'
+                }`}
+              >
+                {context.timeOfDay === option.value && (
+                  <div className={`absolute inset-0 bg-gradient-to-br ${option.gradient} opacity-100`} />
+                )}
+                {context.timeOfDay !== option.value && (
+                  <div className={`absolute inset-0 bg-gradient-to-br ${option.gradient} opacity-10`} />
+                )}
+                <Icon className="w-4 h-4 relative z-10" />
+                <span className="text-[10px] relative z-10">{option.label}</span>
+              </button>
+            );
+          })}
         </div>
       </div>
 
@@ -151,20 +161,30 @@ export default function TimeWeatherWidget() {
           <div className="text-xs text-gray-400 py-2 text-center">Detecting weather...</div>
         ) : (
           <div className="grid grid-cols-5 gap-1">
-            {WEATHER_OPTIONS.map((option) => (
-              <button
-                key={option.value}
-                onClick={() => handleWeatherChange(option.value)}
-                className={`py-1.5 px-1 rounded-md text-xs transition-all flex flex-col items-center gap-1 ${
-                  context.weather === option.value
-                    ? 'bg-blue-100 text-blue-700 ring-1 ring-blue-500'
-                    : 'bg-gray-50 text-gray-600 hover:bg-gray-100'
-                }`}
-                title={option.label}
-              >
-                <span>{option.emoji}</span>
-              </button>
-            ))}
+            {WEATHER_OPTIONS.map((option) => {
+              const Icon = option.icon;
+              return (
+                <button
+                  key={option.value}
+                  onClick={() => handleWeatherChange(option.value)}
+                  className={`py-1.5 px-1 rounded-md text-xs transition-all flex flex-col items-center gap-1 border relative overflow-hidden ${
+                    context.weather === option.value
+                      ? 'border-white/50 ring-2 ring-offset-1 ring-blue-500 shadow-md text-white'
+                      : 'bg-white/80 border-gray-200 text-gray-600 hover:border-gray-300 hover:shadow-sm hover:scale-105'
+                  }`}
+                  title={option.label}
+                >
+                  {context.weather === option.value && (
+                    <div className={`absolute inset-0 bg-gradient-to-br ${option.gradient} opacity-100`} />
+                  )}
+                  {context.weather !== option.value && (
+                    <div className={`absolute inset-0 bg-gradient-to-br ${option.gradient} opacity-10`} />
+                  )}
+                  <Icon className="w-4 h-4 relative z-10" />
+                  <span className="text-[10px] font-medium relative z-10">{option.label}</span>
+                </button>
+              );
+            })}
           </div>
         )}
         

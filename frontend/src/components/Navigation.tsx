@@ -1,15 +1,18 @@
 "use client"
 
+import { useState } from "react"
 import { useRouter, usePathname } from "next/navigation"
 import { useAuthStore } from "@/store/authStore"
 import Link from "next/link"
-import { BookOpen, Compass, User, Clock, LogOut, Search, Heart } from "lucide-react"
+import { BookOpen, Compass, User, Clock, LogOut, Search, Heart, MessageCircle } from "lucide-react"
 import api from "@/lib/api"
+import GeneralChatModal from "./GeneralChatModal"
 
 export default function Navigation() {
   const router = useRouter()
   const pathname = usePathname()
   const { isAuthenticated, user, clearAuth } = useAuthStore()
+  const [isChatOpen, setIsChatOpen] = useState(false)
 
   const handleLogout = async () => {
     try {
@@ -68,6 +71,16 @@ export default function Navigation() {
                 )
               })}
 
+              {/* General Chat Button */}
+              <button
+                onClick={() => setIsChatOpen(true)}
+                className="flex items-center gap-2 px-3 py-2 rounded-md transition hover-lift text-muted hover:text-foreground"
+                title="Book Assistant"
+              >
+                <MessageCircle className="w-4 h-4" aria-hidden />
+                <span className="text-sm font-medium">Chat</span>
+              </button>
+
               {/* User / Logout */}
               <div className="flex items-center gap-4 pl-4 ml-2">
                 <div className="text-right leading-tight">
@@ -86,6 +99,9 @@ export default function Navigation() {
           )}
         </div>
       </div>
+
+      {/* General Chat Modal */}
+      <GeneralChatModal isOpen={isChatOpen} onClose={() => setIsChatOpen(false)} />
     </nav>
   )
 }

@@ -1,4 +1,5 @@
 import { GoogleGenerativeAI } from '@google/generative-ai';
+import { jsonrepair } from 'jsonrepair';
 import googleBooksService from './googleBooks.service.js';
 
 import dotenv from 'dotenv';
@@ -12,9 +13,21 @@ class AIRecommendationService {
     this.model = this.genAI.getGenerativeModel({ 
       model: 'gemini-2.0-flash-001',
       generationConfig: {
-        temperature: 0.9, // Increase randomness
+        temperature: 0.9,
         topP: 0.95,
         topK: 40,
+        maxOutputTokens: 8192, // Increase to prevent truncation
+      }
+    });
+    
+    // Chat model with different settings for faster responses
+    this.chatModel = this.genAI.getGenerativeModel({ 
+      model: 'gemini-2.0-flash-001',
+      generationConfig: {
+        temperature: 0.7,
+        topP: 0.9,
+        topK: 30,
+        maxOutputTokens: 2048,
       }
     });
   }
@@ -34,14 +47,10 @@ class AIRecommendationService {
 
       // Step 3: Get AI recommendations
       const aiResponse = await this.getAIRecommendations(prompt);
+      console.log('🔍 AI Response Preview:', aiResponse.substring(0, 300));
 
       // Step 4: Parse JSON response
-      const jsonMatch = aiResponse.match(/\[[\s\S]*\]/);
-      if (!jsonMatch) {
-        throw new Error('Failed to parse JSON from AI response');
-      }
-      
-      const allBooks = JSON.parse(jsonMatch[0]);
+      const allBooks = this.parseJsonArray(aiResponse, 'personalized');
       
       // Step 5: Shuffle and pick 5 random books from the generated list
       // This ensures variety even if the AI generates similar lists for similar contexts
@@ -92,37 +101,29 @@ class AIRecommendationService {
       console.log('🎲 Generating random AI recommendations...');
       
       const genres = ['Fiction', 'Non-fiction', 'Sci-Fi', 'Mystery', 'Fantasy', 'Biography', 'History', 'Self-help', 'Thriller', 'Romance', 'Horror', 'Philosophy', 'Psychology', 'Business', 'Travel', 'Science'];
-      // Pick 3 random genres to focus on
       const randomGenres = genres.sort(() => 0.5 - Math.random()).slice(0, 3);
       
-      // Ask for 30 books to ensure variety
-      const prompt = `You are an expert book curator. Recommend 30 diverse, highly-rated books focusing on these genres: ${randomGenres.join(', ')}, but also include others.
+      const prompt = `You are an expert book curator. Recommend EXACTLY 12 diverse, highly-rated books focusing on these genres: ${randomGenres.join(', ')}.
       
-      INSTRUCTIONS:
+      CRITICAL INSTRUCTIONS:
       1. Focus on these genres: ${randomGenres.join(', ')}.
-      2. Include a mix of bestsellers, hidden gems, and modern classics.
-      3. Ensure these books are likely to be found in Google Books.
-      4. Provide a brief, engaging reason why each book is worth reading.
-      5. Provide 3 specific genres for each book (e.g., "Space Opera", "Historical Romance", "Hard Sci-Fi").
-      6. Format the output as a JSON array of objects with 'title', 'author', 'reason', and 'genres' fields.
+      2. Include a mix of bestsellers and modern classics.
+      3. Keep each "reason" field to MAX 45 characters!
+      4. Provide 3 genres for each book.
+      5. OUTPUT ONLY valid JSON - no markdown, no extra text.
+      6. COMPLETE all 12 books with proper JSON closing brackets.
       
-      Example format:
+      REQUIRED FORMAT (output ONLY this, nothing else):
       [
-        { "title": "The Great Gatsby", "author": "F. Scott Fitzgerald", "reason": "A classic tale of the Jazz Age.", "genres": ["Classic Literature", "Historical Fiction", "Tragedy"] }
+        { "title": "Book Title", "author": "Author", "reason": "Max 45 chars", "genres": ["G1", "G2", "G3"] }
       ]
       `;
 
       const result = await this.model.generateContent(prompt);
       const response = await result.response;
       const text = response.text();
-      
-      // Parse JSON from the response (handling potential markdown code blocks)
-      const jsonMatch = text.match(/\[[\s\S]*\]/);
-      if (!jsonMatch) {
-        throw new Error('Failed to parse JSON from AI response');
-      }
-      
-      const allBooks = JSON.parse(jsonMatch[0]);
+      console.log('🔍 AI Random Response Preview:', text.substring(0, 300));
+      const allBooks = this.parseJsonArray(text, 'random');
       
       // Shuffle and pick 5
       const shuffled = allBooks.sort(() => 0.5 - Math.random());
@@ -212,7 +213,7 @@ class AIRecommendationService {
     ];
     const randomFocus = discoveryModes[Math.floor(Math.random() * discoveryModes.length)];
 
-    const prompt = `You are an expert book recommendation system. Based on the following information, recommend 20 books that would be perfect for this reader.
+    const prompt = `You are an expert book recommendation system. Based on the following information, recommend EXACTLY 10 books that would be perfect for this reader.
 
 USER PROFILE:
 - Age: ${userAge} years old
@@ -228,19 +229,19 @@ CURRENT CONTEXT:
 - Weather: ${weather}
 - Mood: ${mood}
 
-INSTRUCTIONS:
+CRITICAL INSTRUCTIONS:
 1. Analyze the reading history to understand the user's preferences.
 2. Consider the user's age and current context (time, weather, mood).
-3. Recommend 20 books that match their taste and current situation.
+3. Recommend EXACTLY 10 books that match their taste and current situation.
 4. ${randomFocus}
-5. Ensure variety in the recommendations (mix of genres if appropriate).
-6. Provide a brief reasoning for each recommendation.
-7. Provide 3 specific genres for each book (e.g., "Dystopian Fiction", "Cyberpunk", "Coming of Age").
-8. Format the output as a JSON array of objects with 'title', 'author', 'reason', and 'genres' fields.
+5. Keep each "reason" field to MAX 50 characters - be very concise!
+6. Provide 3 genres for each book.
+7. OUTPUT ONLY valid JSON - no markdown, no extra text.
+8. COMPLETE all 10 books with proper JSON closing brackets.
 
-Example format:
+REQUIRED FORMAT (output ONLY this, nothing else):
 [
-  { "title": "Book Title", "author": "Author Name", "reason": "Reason for recommendation", "genres": ["Genre 1", "Genre 2", "Genre 3"] }
+  { "title": "Book Title", "author": "Author Name", "reason": "Max 50 chars", "genres": ["Genre1", "Genre2", "Genre3"] }
 ]
 `;
 
@@ -254,11 +255,66 @@ Example format:
     try {
       const result = await this.model.generateContent(prompt);
       const response = await result.response;
+      
+      // Check if response is complete
+      if (!response || !response.text) {
+        throw new Error('Empty response from Gemini AI');
+      }
+      
       const text = response.text();
+      
+      // Check for minimum response length
+      if (text.length < 50) {
+        console.warn('⚠️ Unusually short AI response:', text);
+      }
+      
       return text;
     } catch (error) {
       console.error('Error calling Gemini AI:', error);
-      throw new Error('Failed to generate AI recommendations');
+      console.error('Error details:', error.message);
+      throw new Error(`Failed to generate AI recommendations: ${error.message}`);
+    }
+  }
+
+  /**
+   * Extract and repair JSON arrays returned by LLM responses.
+   */
+  parseJsonArray(text, contextLabel = 'ai') {
+    console.log(`📋 Parsing ${contextLabel} JSON response...`);
+    
+    // First try to find JSON array in the response
+    const jsonMatch = text.match(/\[[\s\S]*\]/);
+    if (!jsonMatch) {
+      console.error(`❌ No JSON array found in ${contextLabel} recommendations response`);
+      console.error('Response preview:', text.substring(0, 500));
+      throw new Error('Failed to parse JSON from AI response - no JSON array found');
+    }
+
+    try {
+      let jsonStr = jsonMatch[0];
+      console.log(`📏 JSON string length: ${jsonStr.length} characters`);
+      
+      // Try to repair the JSON
+      const repairedJson = jsonrepair(jsonStr);
+      const parsed = JSON.parse(repairedJson);
+      
+      // Validate it's an array
+      if (!Array.isArray(parsed)) {
+        throw new Error('Parsed result is not an array');
+      }
+      
+      // Validate array has items
+      if (parsed.length === 0) {
+        console.warn(`⚠️ ${contextLabel} response returned empty array`);
+      }
+      
+      console.log(`✅ Successfully parsed ${parsed.length} items from ${contextLabel} response`);
+      return parsed;
+    } catch (parseError) {
+      console.error(`❌ JSON parse error (${contextLabel}):`, parseError.message);
+      console.error('Problematic JSON (first 500 chars):', jsonMatch[0].substring(0, 500));
+      console.error('Problematic JSON (last 200 chars):', jsonMatch[0].substring(Math.max(0, jsonMatch[0].length - 200)));
+      throw new Error(`Invalid JSON format from AI response: ${parseError.message}`);
     }
   }
 
@@ -395,6 +451,69 @@ Example format:
       why: 'Popular bestseller that readers love',
       score: 0.8 - (index * 0.05)
     }));
+  }
+
+  /**
+   * Chat with a book using AI
+   */
+  async chatWithBook(title, authors, question) {
+    try {
+      const authorStr = Array.isArray(authors) ? authors.join(', ') : authors;
+      
+      const prompt = `Answer questions about the book "${title}" by ${authorStr}.
+      
+      User Question: "${question}"
+      
+      INSTRUCTIONS:
+      1. Provide a clear, direct answer based on the book's content.
+      2. For spoilers (endings, plot twists), give a brief warning first.
+      3. Keep responses simple and conversational.
+      4. Limit answer to 2-3 sentences (50-80 words).
+      5. Avoid excessive formatting, emojis, or dramatic language.
+      6. Return ONLY the answer text, no additional formatting.
+      
+      Answer:`;
+
+      console.log('💬 Generating chat response for:', title);
+      const result = await this.chatModel.generateContent(prompt);
+      const response = await result.response;
+      const text = response.text();
+      console.log('✅ Chat response generated successfully');
+      return text;
+    } catch (error) {
+      console.error('Error in chatWithBook:', error);
+      console.error('Error details:', error.message);
+      throw new Error(`Failed to get answer from the book: ${error.message}`);
+    }
+  }
+
+  async generalBookChat(question) {
+    try {
+      const prompt = `You are a knowledgeable book assistant. Answer the following question about books.
+      
+      User Question: "${question}"
+      
+      INSTRUCTIONS:
+      1. Provide helpful, accurate information about books, authors, or literature.
+      2. For book recommendations, suggest 2-3 specific titles with brief reasons.
+      3. Keep responses simple and conversational.
+      4. Limit answer to 3-4 sentences (80-100 words).
+      5. Avoid excessive formatting, emojis, or dramatic language.
+      6. Return ONLY the answer text, no additional formatting.
+      
+      Answer:`;
+
+      console.log('💬 Generating general chat response');
+      const result = await this.chatModel.generateContent(prompt);
+      const response = await result.response;
+      const text = response.text();
+      console.log('✅ General chat response generated successfully');
+      return text;
+    } catch (error) {
+      console.error('Error in generalBookChat:', error);
+      console.error('Error details:', error.message);
+      throw new Error(`Failed to get answer: ${error.message}`);
+    }
   }
 }
 

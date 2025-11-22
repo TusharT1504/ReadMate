@@ -6,12 +6,16 @@ import {
   createBook,
   getAllBooks,
   searchGoogleBooks,
-  updateBookCover
+  updateBookCover,
+  chatWithBook,
+  generalBookChat
 } from '../controllers/book.controller.js';
 import { protect } from '../middleware/auth.js';
 
 const router = express.Router();
 
+router.post('/chat', protect, chatWithBook); // Endpoint for chatting with a specific book
+router.post('/general-chat', protect, generalBookChat); // Endpoint for general book questions
 router.get('/search', searchBooks);
 router.get('/google-books', searchGoogleBooks); // New endpoint for Google Books search
 router.get('/', getAllBooks);

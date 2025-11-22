@@ -1,9 +1,11 @@
 "use client"
 
+import { useState } from "react"
 import type { Book, Recommendation } from "@/types"
 import { useRouter } from "next/navigation"
-import { Star, Heart } from "lucide-react"
+import { Star, Heart, MessageCircle } from "lucide-react"
 import { useAuthStore } from "@/store/authStore"
+import BookChatModal from "./BookChatModal"
 
 interface BookCardProps {
   book: Book
@@ -14,6 +16,7 @@ interface BookCardProps {
 export default function BookCard({ book, recommendation, rank }: BookCardProps) {
   const router = useRouter()
   const { user, toggleFavorite } = useAuthStore()
+  const [isChatOpen, setIsChatOpen] = useState(false)
   const isFavorite = book._id && user?.favorites?.includes(book._id)
 
   const handleClick = () => {
@@ -27,25 +30,43 @@ export default function BookCard({ book, recommendation, rank }: BookCardProps) 
     }
   }
 
-  return (
-    <div
-      onClick={handleClick}
-      className="relative glass hover-lift cursor-pointer overflow-hidden group"
-      role="button"
-      aria-label={`Open ${book.title}`}
-    >
-      {/* Favorite Button */}
-      <button
-        onClick={handleFavorite}
-        className="absolute top-4 right-4 z-20 p-2 rounded-full bg-white/80 hover:bg-white shadow-sm transition-all hover:scale-110 opacity-0 group-hover:opacity-100"
-        aria-label={isFavorite ? "Remove from favorites" : "Add to favorites"}
-      >
-        <Heart 
-          className={`w-5 h-5 ${isFavorite ? "fill-red-500 text-red-500" : "text-gray-600"}`} 
-        />
-      </button>
+  const handleChat = (e: React.MouseEvent) => {
+    e.stopPropagation()
+    setIsChatOpen(true)
+  }
 
-      {/* Rank Badge */}
+  return (
+    <>
+      <div
+        onClick={handleClick}
+        className="relative glass hover-lift cursor-pointer overflow-hidden group"
+        role="button"
+        aria-label={`Open ${book.title}`}
+      >
+        {/* Action Buttons */}
+        <div className="absolute top-4 right-4 z-20 flex gap-2 opacity-0 group-hover:opacity-100 transition-opacity">
+          <button
+            onClick={handleChat}
+            className="p-2 rounded-full bg-white/80 hover:bg-white shadow-sm transition-all hover:scale-110"
+            aria-label="Chat with book"
+            title="Chat with this book"
+          >
+            <MessageCircle className="w-5 h-5 text-purple-600" />
+          </button>
+          
+          <button
+            onClick={handleFavorite}
+            className="p-2 rounded-full bg-white/80 hover:bg-white shadow-sm transition-all hover:scale-110"
+            aria-label={isFavorite ? "Remove from favorites" : "Add to favorites"}
+            title={isFavorite ? "Remove from favorites" : "Add to favorites"}
+          >
+            <Heart 
+              className={`w-5 h-5 ${isFavorite ? "fill-red-500 text-red-500" : "text-gray-600"}`} 
+            />
+          </button>
+        </div>
+
+        {/* Rank Badge */}
       {rank && (
         <div
           className="absolute top-4 left-4 w-10 h-10 text-white rounded-full flex items-center justify-center font-bold z-10 shadow-sm"
@@ -57,10 +78,10 @@ export default function BookCard({ book, recommendation, rank }: BookCardProps) 
 
       {/* Book Cover */}
       <div className="h-48 relative overflow-hidden bg-gradient-to-br from-purple-500 to-indigo-600">
-        {book.metadata?.coverImage ? (
+        {(book.coverImage || book.metadata?.coverImage) ? (
           <>
             <img
-              src={book.metadata.coverImage}
+              src={book.coverImage || book.metadata?.coverImage}
               alt={`${book.title} cover`}
               className="w-full h-full object-cover transition-transform duration-300 group-hover:scale-110"
               onError={(e) => {
@@ -139,5 +160,13 @@ export default function BookCard({ book, recommendation, rank }: BookCardProps) 
         {book.metadata?.pages && <div className="mt-3 text-xs text-muted">📖 {book.metadata.pages} pages</div>}
       </div>
     </div>
+
+      <BookChatModal
+        isOpen={isChatOpen}
+        onClose={() => setIsChatOpen(false)}
+        bookTitle={book.title}
+        authors={book.authors}
+      />
+    </>
   )
 }

@@ -1,6 +1,6 @@
 'use client';
 
-import { useState, useEffect } from 'react';
+import { useState, useEffect, use } from 'react';
 import { useRouter } from 'next/navigation';
 import Navigation from '@/components/Navigation';
 import { ArrowLeft, Star, BookOpen, ExternalLink, Loader2 } from 'lucide-react';
@@ -31,8 +31,9 @@ interface RelatedBook {
   bookData: Book;
 }
 
-export default function GoogleBookDetailPage({ params }: { params: { id: string } }) {
+export default function GoogleBookDetailPage({ params }: { params: Promise<{ id: string }> }) {
   const router = useRouter();
+  const { id } = use(params);
   const [book, setBook] = useState<Book | null>(null);
   const [relatedBooks, setRelatedBooks] = useState<RelatedBook[]>([]);
   const [loading, setLoading] = useState(true);
@@ -41,16 +42,16 @@ export default function GoogleBookDetailPage({ params }: { params: { id: string 
 
   useEffect(() => {
     fetchBook();
-  }, [params.id]);
+  }, [id]);
 
   const fetchBook = async () => {
     try {
       setLoading(true);
-      const response = await api.get(`/search/books/${params.id}`);
+      const response = await api.get(`/search/books/${id}`);
       setBook(response.data.data.book);
       
       // Fetch related books
-      fetchRelatedBooks(params.id);
+      fetchRelatedBooks(id);
     } catch (err: any) {
       setError(err.response?.data?.message || 'Failed to load book');
     } finally {

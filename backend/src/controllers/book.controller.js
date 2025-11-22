@@ -1,6 +1,7 @@
 import Book from '../models/Book.model.js';
 import { AppError } from '../middleware/errorHandler.js';
 import googleBooksService from '../services/googleBooks.service.js';
+import aiRecommendationService from '../services/aiRecommendation.service.js';
 
 export const searchBooks = async (req, res, next) => {
   try {
@@ -218,6 +219,56 @@ export const updateBookCover = async (req, res, next) => {
       data: { book }
     });
   } catch (error) {
+    next(error);
+  }
+};
+
+export const chatWithBook = async (req, res, next) => {
+  try {
+    const { title, authors, question } = req.body;
+
+    if (!title || !question) {
+      throw new AppError('Title and question are required', 400);
+    }
+
+    console.log('📚 Chat request for book:', title);
+    const answer = await aiRecommendationService.chatWithBook(title, authors, question);
+
+    if (!answer || answer.trim().length === 0) {
+      throw new AppError('AI generated an empty response', 500);
+    }
+
+    res.json({
+      success: true,
+      data: { answer: answer.trim() }
+    });
+  } catch (error) {
+    console.error('Chat with book error:', error);
+    next(error);
+  }
+};
+
+export const generalBookChat = async (req, res, next) => {
+  try {
+    const { question } = req.body;
+
+    if (!question) {
+      throw new AppError('Question is required', 400);
+    }
+
+    console.log('💬 General chat request:', question);
+    const answer = await aiRecommendationService.generalBookChat(question);
+
+    if (!answer || answer.trim().length === 0) {
+      throw new AppError('AI generated an empty response', 500);
+    }
+
+    res.json({
+      success: true,
+      data: { answer: answer.trim() }
+    });
+  } catch (error) {
+    console.error('General book chat error:', error);
     next(error);
   }
 };
