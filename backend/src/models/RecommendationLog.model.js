@@ -17,7 +17,7 @@ const recommendationSchema = new mongoose.Schema({
   why: String,
   source: {
     type: String,
-    enum: ['semantic', 'collaborative', 'rag', 'hybrid', 'rag+cf', 'heuristic', 'ai-google-books'],
+    enum: ['semantic', 'collaborative', 'rag', 'hybrid', 'rag+cf', 'heuristic', 'ai-google-books', 'ai-personalized', 'ai-random'],
     default: 'hybrid'
   },
   externalData: {

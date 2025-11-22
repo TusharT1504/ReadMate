@@ -2,7 +2,8 @@
 
 import type { Book, Recommendation } from "@/types"
 import { useRouter } from "next/navigation"
-import { Star } from "lucide-react"
+import { Star, Heart } from "lucide-react"
+import { useAuthStore } from "@/store/authStore"
 
 interface BookCardProps {
   book: Book
@@ -12,9 +13,18 @@ interface BookCardProps {
 
 export default function BookCard({ book, recommendation, rank }: BookCardProps) {
   const router = useRouter()
+  const { user, toggleFavorite } = useAuthStore()
+  const isFavorite = book._id && user?.favorites?.includes(book._id)
 
   const handleClick = () => {
     router.push(`/book/${book._id}`)
+  }
+
+  const handleFavorite = (e: React.MouseEvent) => {
+    e.stopPropagation()
+    if (book._id) {
+      toggleFavorite(book._id)
+    }
   }
 
   return (
@@ -24,6 +34,17 @@ export default function BookCard({ book, recommendation, rank }: BookCardProps) 
       role="button"
       aria-label={`Open ${book.title}`}
     >
+      {/* Favorite Button */}
+      <button
+        onClick={handleFavorite}
+        className="absolute top-4 right-4 z-20 p-2 rounded-full bg-white/80 hover:bg-white shadow-sm transition-all hover:scale-110 opacity-0 group-hover:opacity-100"
+        aria-label={isFavorite ? "Remove from favorites" : "Add to favorites"}
+      >
+        <Heart 
+          className={`w-5 h-5 ${isFavorite ? "fill-red-500 text-red-500" : "text-gray-600"}`} 
+        />
+      </button>
+
       {/* Rank Badge */}
       {rank && (
         <div
@@ -75,13 +96,15 @@ export default function BookCard({ book, recommendation, rank }: BookCardProps) 
         <p className="text-sm text-muted mb-3">by {book.authors.join(", ")}</p>
 
         {/* Genres */}
-        <div className="flex flex-wrap gap-2 mb-3">
-          {book.genres.slice(0, 3).map((genre) => (
-            <span key={genre} className="badge">
-              {genre}
-            </span>
-          ))}
-        </div>
+        {book.genres && book.genres.length > 0 && (
+          <div className="flex flex-wrap gap-2 mb-3">
+            {book.genres.slice(0, 5).map((genre) => (
+              <span key={genre} className="badge">
+                {genre}
+              </span>
+            ))}
+          </div>
+        )}
 
         {/* Description */}
         <p className="text-sm text-muted line-clamp-3 mb-3">{book.description}</p>
@@ -90,10 +113,10 @@ export default function BookCard({ book, recommendation, rank }: BookCardProps) 
         <div className="flex items-center gap-4 mb-3 text-sm">
           <div className="flex items-center gap-1">
             <Star className="w-4 h-4 text-accent fill-current" />
-            <span className="font-medium">{book.popularity.ratings.average.toFixed(1)}</span>
-            <span className="text-muted">({book.popularity.ratings.count})</span>
+            <span className="font-medium">{book.popularity?.ratings?.average?.toFixed(1) || 'N/A'}</span>
+            <span className="text-muted">({book.popularity?.ratings?.count || 0})</span>
           </div>
-          <div className="text-muted">{book.popularity.reads} reads</div>
+          <div className="text-muted">{book.popularity?.reads || 0} reads</div>
         </div>
 
         {/* Recommendation Explanation */}
@@ -113,7 +136,7 @@ export default function BookCard({ book, recommendation, rank }: BookCardProps) 
         )}
 
         {/* Pages Info */}
-        {book.metadata.pages && <div className="mt-3 text-xs text-muted">📖 {book.metadata.pages} pages</div>}
+        {book.metadata?.pages && <div className="mt-3 text-xs text-muted">📖 {book.metadata.pages} pages</div>}
       </div>
     </div>
   )

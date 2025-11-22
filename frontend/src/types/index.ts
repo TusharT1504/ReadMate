@@ -75,6 +75,7 @@ export interface User {
   likedSections?: LikedSection[];
   pastReads?: PastRead[];
   moodHistory?: MoodHistory[];
+  favorites?: string[] | Book[];
 }
 
 export interface LikedSection {

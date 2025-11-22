@@ -81,6 +81,10 @@ const userSchema = new mongoose.Schema({
   likedSections: [likedSectionSchema],
   pastReads: [pastReadSchema],
   moodHistory: [moodHistorySchema],
+  favorites: [{
+    type: mongoose.Schema.Types.ObjectId,
+    ref: 'Book'
+  }],
   refreshToken: String
 }, {
   timestamps: true

@@ -33,24 +33,32 @@ export default function MoodPicker() {
   };
 
   return (
-    <div className="bg-white rounded-xl shadow-sm p-6">
-      <h2 className="text-xl font-semibold text-gray-900 mb-4">
-        How are you feeling?
-      </h2>
+    <div className="bg-white rounded-xl shadow-sm p-4">
+      <div className="flex justify-between items-center mb-3">
+        <h2 className="text-sm font-semibold text-gray-900">
+          How are you feeling?
+        </h2>
+        {context.mood && (
+          <span className="text-xs font-medium px-2 py-1 bg-purple-100 text-purple-700 rounded-full">
+            Current: {context.mood}
+          </span>
+        )}
+      </div>
 
-      <div className="grid grid-cols-2 sm:grid-cols-4 gap-3 mb-4">
+      <div className="grid grid-cols-4 sm:grid-cols-8 gap-2 mb-3">
         {MOODS.map((mood) => (
           <button
             key={mood.value}
             onClick={() => handleMoodSelect(mood.value)}
-            className={`p-4 border-2 rounded-lg transition-all ${
+            className={`p-2 border rounded-lg transition-all flex flex-col items-center justify-center gap-1 ${
               context.mood === mood.value
-                ? mood.color + ' border-opacity-100'
-                : 'bg-gray-50 border-gray-200 text-gray-600 hover:border-gray-300'
+                ? mood.color + ' border-opacity-100 ring-1 ring-offset-1 ring-purple-500'
+                : 'bg-gray-50 border-gray-200 text-gray-600 hover:border-gray-300 hover:bg-gray-100'
             }`}
+            title={mood.label}
           >
-            <div className="text-3xl mb-2">{mood.emoji}</div>
-            <div className="text-sm font-medium">{mood.label}</div>
+            <div className="text-xl">{mood.emoji}</div>
+            <div className="text-[10px] font-medium truncate w-full text-center">{mood.label}</div>
           </button>
         ))}
       </div>
@@ -59,9 +67,9 @@ export default function MoodPicker() {
       {!showCustom ? (
         <button
           onClick={() => setShowCustom(true)}
-          className="w-full py-3 border-2 border-dashed border-gray-300 rounded-lg text-gray-600 hover:border-gray-400 hover:text-gray-700 transition"
+          className="w-full py-2 border border-dashed border-gray-300 rounded-lg text-xs text-gray-500 hover:border-gray-400 hover:text-gray-700 transition flex items-center justify-center gap-2"
         >
-          ✍️ Describe your own mood
+          <span>✍️</span> Describe your own mood
         </button>
       ) : (
         <div className="flex gap-2">
@@ -70,14 +78,14 @@ export default function MoodPicker() {
             value={customMood}
             onChange={(e) => setCustomMood(e.target.value)}
             onKeyPress={(e) => e.key === 'Enter' && handleCustomMood()}
-            placeholder="e.g., curious, nostalgic, motivated..."
-            className="flex-1 px-4 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-purple-600 focus:border-transparent"
+            placeholder="e.g., curious..."
+            className="flex-1 px-3 py-1.5 text-sm border border-gray-300 rounded-md focus:ring-1 focus:ring-purple-600 focus:border-transparent"
             autoFocus
           />
           <button
             onClick={handleCustomMood}
             disabled={!customMood.trim()}
-            className="px-6 py-2 bg-purple-600 text-white rounded-lg hover:bg-purple-700 transition disabled:opacity-50 disabled:cursor-not-allowed"
+            className="px-3 py-1.5 bg-purple-600 text-white text-xs rounded-md hover:bg-purple-700 transition disabled:opacity-50"
           >
             Set
           </button>
@@ -86,18 +94,10 @@ export default function MoodPicker() {
               setShowCustom(false);
               setCustomMood('');
             }}
-            className="px-4 py-2 bg-gray-100 text-gray-600 rounded-lg hover:bg-gray-200 transition"
+            className="px-3 py-1.5 bg-gray-100 text-gray-600 text-xs rounded-md hover:bg-gray-200 transition"
           >
             Cancel
           </button>
-        </div>
-      )}
-
-      {context.mood && (
-        <div className="mt-4 p-3 bg-purple-50 rounded-lg">
-          <p className="text-sm text-purple-700">
-            <span className="font-medium">Current mood:</span> {context.mood}
-          </p>
         </div>
       )}
     </div>

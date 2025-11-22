@@ -1,7 +1,8 @@
 "use client"
 
 import type { Recommendation } from "@/types"
-import { ExternalLink, Star, BookOpen } from "lucide-react"
+import { ExternalLink, Star, BookOpen, Heart } from "lucide-react"
+import { useAuthStore } from "@/store/authStore"
 
 interface AIBookCardProps {
   recommendation: Recommendation
@@ -9,6 +10,7 @@ interface AIBookCardProps {
 }
 
 export default function AIBookCard({ recommendation, rank }: AIBookCardProps) {
+  const { user, toggleFavorite } = useAuthStore()
   const {
     title,
     authors,
@@ -24,12 +26,46 @@ export default function AIBookCard({ recommendation, rank }: AIBookCardProps) {
     score
   } = recommendation;
 
+  const bookId = typeof recommendation.book === 'object' ? recommendation.book?._id : undefined;
+  const isFavorite = bookId && user?.favorites?.includes(bookId);
+
+  const handleFavorite = (e: React.MouseEvent) => {
+    e.stopPropagation()
+    if (bookId) {
+      toggleFavorite(bookId)
+    } else {
+      toggleFavorite(undefined, {
+        googleBooksId: recommendation.googleBooksId,
+        title: recommendation.title,
+        authors: recommendation.authors,
+        description: recommendation.description,
+        coverImage: recommendation.coverImage,
+        genres: recommendation.genres,
+        pageCount: recommendation.pageCount,
+        publishDate: recommendation.publishDate,
+        averageRating: recommendation.averageRating,
+        ratingsCount: recommendation.ratingsCount
+      })
+    }
+  }
+
   return (
     <div
       className="relative glass hover-lift overflow-hidden group"
       role="article"
       aria-label={`Recommendation: ${title}`}
     >
+      {/* Favorite Button */}
+      <button
+        onClick={handleFavorite}
+        className="absolute top-14 right-4 z-20 p-2 rounded-full bg-white/80 hover:bg-white shadow-sm transition-all hover:scale-110 opacity-0 group-hover:opacity-100"
+        aria-label={isFavorite ? "Remove from favorites" : "Add to favorites"}
+      >
+        <Heart 
+          className={`w-5 h-5 ${isFavorite ? "fill-red-500 text-red-500" : "text-gray-600"}`} 
+        />
+      </button>
+
       {/* Rank Badge */}
       <div
         className="absolute top-4 left-4 w-10 h-10 text-white rounded-full flex items-center justify-center font-bold z-10 shadow-sm"
@@ -82,7 +118,7 @@ export default function AIBookCard({ recommendation, rank }: AIBookCardProps) {
         {/* Genres */}
         {genres && genres.length > 0 && (
           <div className="flex flex-wrap gap-2 mb-3">
-            {genres.slice(0, 3).map((genre, index) => (
+            {genres.slice(0, 5).map((genre, index) => (
               <span key={index} className="badge">
                 {genre}
               </span>

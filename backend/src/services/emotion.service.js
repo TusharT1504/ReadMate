@@ -12,7 +12,8 @@ class EmotionDetectionService {
     }
     this.token = process.env.HF_TOKEN;
     this.model = 'dima806/facial_emotions_image_detection';
-    this.apiUrl = `https://api-inference.huggingface.co/models/${this.model}`;
+    // Updated API URL as per Hugging Face deprecation notice
+    this.apiUrl = `https://router.huggingface.co/hf-inference/models/${this.model}`;
   }
 
   /**

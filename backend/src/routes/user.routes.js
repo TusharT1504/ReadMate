@@ -5,7 +5,10 @@ import {
   getLikedSections, 
   addLikedSection,
   getHistory,
-  updatePreferences
+  updatePreferences,
+  addFavorite,
+  removeFavorite,
+  getFavorites
 } from '../controllers/user.controller.js';
 import { protect } from '../middleware/auth.js';
 
@@ -20,5 +23,9 @@ router.get('/me/likes', getLikedSections);
 router.post('/me/like-section', addLikedSection);
 router.get('/me/history', getHistory);
 router.put('/me/preferences', updatePreferences);
+
+router.get('/me/favorites', getFavorites);
+router.post('/me/favorites', addFavorite);
+router.delete('/me/favorites/:bookId', removeFavorite);
 
 export default router;

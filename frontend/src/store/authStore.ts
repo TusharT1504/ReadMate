@@ -1,6 +1,7 @@
 import { create } from 'zustand';
 import { persist } from 'zustand/middleware';
 import api from '@/lib/api';
+import toast from 'react-hot-toast';
 
 interface User {
   _id: string;
@@ -13,6 +14,7 @@ interface User {
     favoriteGenres: string[];
     dislikedGenres: string[];
   };
+  favorites?: string[];
 }
 
 interface AuthState {
@@ -22,11 +24,12 @@ interface AuthState {
   setAuth: (user: User) => void;
   clearAuth: () => void;
   checkAuth: () => Promise<void>;
+  toggleFavorite: (bookId?: string, bookDetails?: any) => Promise<void>;
 }
 
 export const useAuthStore = create<AuthState>()(
   persist(
-    (set) => ({
+    (set, get) => ({
       user: null,
       isAuthenticated: false,
       isLoading: false, // Start as false to avoid initial loading flash
@@ -45,6 +48,46 @@ export const useAuthStore = create<AuthState>()(
           localStorage.removeItem('refreshToken');
         }
         set({ user: null, isAuthenticated: false, isLoading: false });
+      },
+
+      toggleFavorite: async (bookId?: string, bookDetails?: any) => {
+        const { user } = get();
+        if (!user) return;
+
+        const isFavorite = bookId && user.favorites?.includes(bookId);
+
+        if (isFavorite) {
+          // Optimistic remove
+          const newFavorites = user.favorites?.filter(id => id !== bookId);
+          set({ user: { ...user, favorites: newFavorites } });
+          toast.success('Removed from favorites');
+          try {
+            await api.delete(`/users/me/favorites/${bookId}`);
+          } catch (error) {
+            set({ user }); // Revert
+            toast.error('Failed to remove favorite');
+            console.error('Failed to remove favorite', error);
+          }
+        } else {
+          // Add
+          // If we have bookId, optimistic add
+          if (bookId) {
+            const newFavorites = [...(user.favorites || []), bookId];
+            set({ user: { ...user, favorites: newFavorites } });
+          }
+          
+          toast.success('Added to favorites');
+          try {
+            const payload = bookId ? { bookId } : bookDetails;
+            const res = await api.post('/users/me/favorites', payload);
+            // Update with server state (which includes the new ID)
+            set({ user: { ...user, favorites: res.data.data.favorites } });
+          } catch (error) {
+            if (bookId) set({ user }); // Revert
+            toast.error('Failed to add favorite');
+            console.error('Failed to add favorite', error);
+          }
+        }
       },
       
       // Check if user is authenticated (via cookies)

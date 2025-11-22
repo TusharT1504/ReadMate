@@ -1,7 +1,7 @@
 'use client';
 
-import { useState, useRef } from 'react';
-import { Camera, Upload, Loader2 } from 'lucide-react';
+import { useState, useRef, useEffect } from 'react';
+import { Camera, Upload, Loader2, X, RefreshCw, Aperture } from 'lucide-react';
 import api from '@/lib/api';
 
 interface EmotionResult {
@@ -23,32 +23,98 @@ export default function EmotionDetector({ onMoodDetected }: EmotionDetectorProps
   const [result, setResult] = useState<EmotionResult | null>(null);
   const [error, setError] = useState('');
   const [preview, setPreview] = useState<string | null>(null);
+  const [isCameraOpen, setIsCameraOpen] = useState(false);
+  
   const fileInputRef = useRef<HTMLInputElement>(null);
+  const videoRef = useRef<HTMLVideoElement>(null);
+  const canvasRef = useRef<HTMLCanvasElement>(null);
+  const streamRef = useRef<MediaStream | null>(null);
+
+  useEffect(() => {
+    return () => {
+      stopCamera();
+    };
+  }, []);
+
+  const startCamera = async () => {
+    try {
+      setError('');
+      const stream = await navigator.mediaDevices.getUserMedia({ 
+        video: { facingMode: 'user' } 
+      });
+      streamRef.current = stream;
+      setIsCameraOpen(true);
+      // Small delay to ensure video element is mounted
+      setTimeout(() => {
+        if (videoRef.current) {
+          videoRef.current.srcObject = stream;
+        }
+      }, 100);
+    } catch (err) {
+      setError('Unable to access camera. Please check permissions.');
+      console.error(err);
+    }
+  };
+
+  const stopCamera = () => {
+    if (streamRef.current) {
+      streamRef.current.getTracks().forEach(track => track.stop());
+      streamRef.current = null;
+    }
+    setIsCameraOpen(false);
+  };
+
+  const capturePhoto = () => {
+    if (videoRef.current && canvasRef.current) {
+      const video = videoRef.current;
+      const canvas = canvasRef.current;
+      
+      // Set canvas dimensions to match video
+      canvas.width = video.videoWidth;
+      canvas.height = video.videoHeight;
+      
+      const context = canvas.getContext('2d');
+      if (context) {
+        // Flip horizontally for mirror effect if needed, but usually raw capture is fine
+        // context.translate(canvas.width, 0);
+        // context.scale(-1, 1);
+        
+        context.drawImage(video, 0, 0, canvas.width, canvas.height);
+        const dataUrl = canvas.toDataURL('image/jpeg');
+        setPreview(dataUrl);
+        stopCamera();
+        
+        // Convert to file and detect
+        canvas.toBlob((blob) => {
+          if (blob) {
+            const file = new File([blob], "webcam-photo.jpg", { type: "image/jpeg" });
+            detectEmotion(file);
+          }
+        }, 'image/jpeg');
+      }
+    }
+  };
 
   const handleFileSelect = async (e: React.ChangeEvent<HTMLInputElement>) => {
     const file = e.target.files?.[0];
     if (!file) return;
 
-    // Validate file type
     if (!file.type.startsWith('image/')) {
       setError('Please select an image file');
       return;
     }
 
-    // Validate file size (5MB max)
     if (file.size > 5 * 1024 * 1024) {
       setError('Image size must be less than 5MB');
       return;
     }
 
-    // Show preview
     const reader = new FileReader();
     reader.onloadend = () => {
       setPreview(reader.result as string);
     };
     reader.readAsDataURL(file);
 
-    // Detect emotion
     await detectEmotion(file);
   };
 
@@ -70,7 +136,6 @@ export default function EmotionDetector({ onMoodDetected }: EmotionDetectorProps
       const emotionResult = response.data.data;
       setResult(emotionResult);
 
-      // Callback to parent component
       if (onMoodDetected) {
         onMoodDetected(emotionResult.mood, emotionResult);
       }
@@ -82,157 +147,109 @@ export default function EmotionDetector({ onMoodDetected }: EmotionDetectorProps
     }
   };
 
-  const handleUploadClick = () => {
-    fileInputRef.current?.click();
-  };
-
   const resetDetection = () => {
     setResult(null);
     setPreview(null);
     setError('');
+    stopCamera();
     if (fileInputRef.current) {
       fileInputRef.current.value = '';
     }
   };
 
   return (
-    <div className="bg-white rounded-xl shadow-sm p-6">
-      <div className="flex items-center gap-2 mb-4">
-        <Camera className="w-5 h-5 text-purple-600" />
-        <h3 className="text-lg font-semibold text-gray-900">
-          Detect Mood from Photo
-        </h3>
+    <div className="bg-white rounded-xl shadow-sm p-4 relative overflow-hidden">
+      <div className="flex items-center justify-between">
+        <div className="flex items-center gap-2">
+          <div className="p-2 bg-purple-100 rounded-lg text-purple-600">
+            <Camera className="w-4 h-4" />
+          </div>
+          <div>
+            <h3 className="text-sm font-semibold text-gray-900">Detect Mood</h3>
+            <p className="text-xs text-gray-500">AI analysis from photo</p>
+          </div>
+        </div>
+
+        <div className="flex gap-2">
+          <input
+            type="file"
+            ref={fileInputRef}
+            onChange={handleFileSelect}
+            accept="image/*"
+            className="hidden"
+          />
+          
+          {loading ? (
+            <button disabled className="px-3 py-1.5 bg-gray-100 text-gray-400 rounded-lg text-xs flex items-center gap-2">
+              <Loader2 className="w-3 h-3 animate-spin" />
+              Analyzing...
+            </button>
+          ) : result ? (
+            <div className="flex items-center gap-2">
+              <span className="text-xs font-medium px-2 py-1 bg-green-100 text-green-700 rounded-full">
+                Detected: {result.mood}
+              </span>
+              <button 
+                onClick={resetDetection}
+                className="text-xs text-gray-400 hover:text-gray-600"
+              >
+                Reset
+              </button>
+            </div>
+          ) : isCameraOpen ? (
+            <button
+              onClick={stopCamera}
+              className="px-3 py-1.5 bg-red-100 text-red-600 rounded-lg hover:bg-red-200 transition text-xs font-medium"
+            >
+              Cancel
+            </button>
+          ) : (
+            <div className="flex gap-2">
+              <button
+                onClick={startCamera}
+                className="px-3 py-1.5 bg-purple-600 text-white rounded-lg hover:bg-purple-700 transition text-xs font-medium flex items-center gap-1"
+              >
+                <Aperture className="w-3 h-3" />
+                Live Camera
+              </button>
+              <button
+                onClick={() => fileInputRef.current?.click()}
+                className="px-2 py-1.5 bg-gray-100 text-gray-600 rounded-lg hover:bg-gray-200 transition text-xs"
+                title="Upload Photo"
+              >
+                <Upload className="w-3 h-3" />
+              </button>
+            </div>
+          )}
+        </div>
       </div>
 
-      <p className="text-sm text-gray-600 mb-4">
-        Upload a selfie and we'll detect your current mood using AI! 📸
-      </p>
-
-      {/* Upload Button */}
-      <input
-        ref={fileInputRef}
-        type="file"
-        accept="image/*"
-        onChange={handleFileSelect}
-        className="hidden"
-      />
-
-      {!preview && (
-        <button
-          onClick={handleUploadClick}
-          disabled={loading}
-          className="w-full px-4 py-3 bg-purple-50 text-purple-600 rounded-lg border-2 border-dashed border-purple-300 hover:bg-purple-100 transition flex items-center justify-center gap-2 disabled:opacity-50"
-        >
-          <Upload className="w-5 h-5" />
-          {loading ? 'Processing...' : 'Upload Photo'}
-        </button>
-      )}
-
-      {/* Preview & Loading */}
-      {preview && (
-        <div className="mb-4">
-          <img
-            src={preview}
-            alt="Preview"
-            className="w-full max-h-64 object-contain rounded-lg"
+      {/* Camera View Overlay */}
+      {isCameraOpen && (
+        <div className="mt-3 relative rounded-lg overflow-hidden bg-black aspect-video">
+          <video 
+            ref={videoRef} 
+            autoPlay 
+            playsInline 
+            className="w-full h-full object-cover"
           />
-          {!result && (
+          <div className="absolute bottom-4 left-0 right-0 flex justify-center">
             <button
-              onClick={resetDetection}
-              className="mt-2 text-sm text-gray-600 hover:text-gray-900"
+              onClick={capturePhoto}
+              className="w-12 h-12 rounded-full bg-white border-4 border-purple-200 flex items-center justify-center hover:scale-105 transition-transform shadow-lg"
             >
-              Choose different photo
+              <div className="w-8 h-8 rounded-full bg-purple-600"></div>
             </button>
-          )}
+          </div>
         </div>
       )}
 
-      {/* Loading State */}
-      {loading && (
-        <div className="flex flex-col items-center gap-2 py-4">
-          <Loader2 className="w-8 h-8 text-purple-600 animate-spin" />
-          <p className="text-sm text-gray-600">Analyzing your mood...</p>
-        </div>
-      )}
+      {/* Hidden Canvas for Capture */}
+      <canvas ref={canvasRef} className="hidden" />
 
-      {/* Error Message */}
       {error && (
-        <div className="p-3 bg-red-50 text-red-700 rounded-lg text-sm">
+        <div className="mt-2 text-xs text-red-500 bg-red-50 p-2 rounded">
           {error}
-        </div>
-      )}
-
-      {/* Results */}
-      {result && !loading && (
-        <div className="space-y-4">
-          <div className="p-4 bg-gradient-to-r from-purple-50 to-blue-50 rounded-lg">
-            <div className="flex items-center justify-between mb-2">
-              <span className="text-sm font-medium text-gray-700">
-                Detected Mood:
-              </span>
-              <span className="text-lg font-bold text-purple-600 capitalize">
-                {result.mood}
-              </span>
-            </div>
-            <div className="flex items-center justify-between">
-              <span className="text-xs text-gray-600">Confidence:</span>
-              <span className="text-sm font-medium text-gray-900">
-                {(result.confidence * 100).toFixed(1)}%
-              </span>
-            </div>
-          </div>
-
-          {/* Suggested Moods */}
-          {result.suggestions && result.suggestions.length > 0 && (
-            <div>
-              <p className="text-sm font-medium text-gray-700 mb-2">
-                Suggested Moods:
-              </p>
-              <div className="flex flex-wrap gap-2">
-                {result.suggestions.map((mood) => (
-                  <span
-                    key={mood}
-                    className="px-3 py-1 bg-purple-100 text-purple-700 rounded-full text-sm capitalize"
-                  >
-                    {mood}
-                  </span>
-                ))}
-              </div>
-            </div>
-          )}
-
-          {/* Emotion Details */}
-          <div>
-            <p className="text-sm font-medium text-gray-700 mb-2">
-              Emotion Breakdown:
-            </p>
-            <div className="space-y-2">
-              {result.details.slice(0, 5).map((detail) => (
-                <div key={detail.emotion} className="flex items-center gap-2">
-                  <span className="text-xs text-gray-600 capitalize w-20">
-                    {detail.emotion}
-                  </span>
-                  <div className="flex-1 h-2 bg-gray-200 rounded-full overflow-hidden">
-                    <div
-                      className="h-full bg-purple-500 rounded-full transition-all"
-                      style={{ width: `${detail.confidence * 100}%` }}
-                    />
-                  </div>
-                  <span className="text-xs text-gray-600">
-                    {(detail.confidence * 100).toFixed(0)}%
-                  </span>
-                </div>
-              ))}
-            </div>
-          </div>
-
-          {/* Try Again Button */}
-          <button
-            onClick={resetDetection}
-            className="w-full px-4 py-2 bg-gray-100 text-gray-700 rounded-lg hover:bg-gray-200 transition"
-          >
-            Try Another Photo
-          </button>
         </div>
       )}
     </div>

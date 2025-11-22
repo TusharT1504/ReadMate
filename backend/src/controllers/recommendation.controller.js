@@ -52,10 +52,16 @@ export const generateRecommendations = async (req, res, next) => {
 
     // Generate AI-powered recommendations
     console.log('🤖 Using AI recommendation engine...');
-    const recommendations = await aiRecommendationService.generateRecommendations(
+    let recommendations = await aiRecommendationService.generateRecommendations(
       user,
       context
     );
+
+    // Fallback to random recommendations if no recommendations generated
+    if (!recommendations || recommendations.length === 0) {
+      console.log('⚠️ No personalized recommendations generated. Falling back to random recommendations.');
+      recommendations = await aiRecommendationService.getRandomRecommendations();
+    }
 
     // Log recommendations
     const log = await RecommendationLog.create({

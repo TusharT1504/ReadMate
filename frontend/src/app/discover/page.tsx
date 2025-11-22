@@ -24,11 +24,15 @@ export default function DiscoverPage() {
   useEffect(() => {
     if (!isAuthenticated) {
       router.push("/login")
+    } else {
+      // Fetch initial random recommendations
+      handleGetRecommendations(true)
     }
   }, [isAuthenticated, router])
 
-  const handleGetRecommendations = async () => {
-    if (!context.mood) {
+  const handleGetRecommendations = async (isInitial = false, moodOverride?: string) => {
+    const moodToUse = moodOverride || context.mood
+    if (!moodToUse && !isInitial) {
       setError("Please select a mood first")
       return
     }
@@ -38,7 +42,7 @@ export default function DiscoverPage() {
 
     try {
       const response = await api.post("/recs/generate", {
-        mood: context.mood,
+        mood: moodToUse,
         timeOfDay: context.timeOfDay,
         weather: context.weather,
       })
@@ -56,49 +60,55 @@ export default function DiscoverPage() {
   }
 
   return (
-    <div className="min-h-screen">
+    <div className="min-h-screen bg-gray-50">
       <Navigation />
 
-      <div className="container mx-auto px-6 py-8">
-        <div className="glass p-6 mb-8">
-          <h1 className="text-4xl font-bold mb-2">Discover Books</h1>
-          <p className="text-muted">Get personalized recommendations based on your current mood and context</p>
-        </div>
-
-        {/* Context Selection */}
-        <div className="grid lg:grid-cols-3 gap-6 mb-8">
-          <div className="lg:col-span-2 space-y-6">
-            <div className="glass p-4">
-              <MoodPicker />
-            </div>
-            <EmotionDetector
-              onMoodDetected={(mood) => {
-                useRecommendationStore.getState().setMood(mood)
-              }}
-            />
-          </div>
-          <div className="glass p-4">
-            <TimeWeatherWidget />
-          </div>
-        </div>
-
-        {/* Get Recommendations Button */}
+      <div className="container mx-auto px-4 py-6 max-w-6xl">
+        {/* Header & Controls */}
         <div className="mb-8">
-          <button onClick={handleGetRecommendations} disabled={loading || !context.mood} className="btn-primary">
-            {loading ? (
-              <>
-                <span className="animate-spin" aria-hidden>
-                  ⏳
-                </span>
-                Generating...
-              </>
-            ) : (
-              <>✨ Get Recommendations</>
-            )}
-          </button>
+          <div className="flex flex-col md:flex-row justify-between items-start md:items-center mb-6 gap-4">
+            <div>
+              <h1 className="text-2xl font-bold text-gray-900">Discover Books</h1>
+              <p className="text-sm text-gray-500">AI-powered recommendations based on your context</p>
+            </div>
+            
+            <button 
+              onClick={() => handleGetRecommendations(false)} 
+              disabled={loading || !context.mood} 
+              className="px-6 py-2.5 bg-gradient-to-r from-purple-600 to-blue-600 text-white rounded-lg hover:shadow-lg transform hover:scale-105 transition-all duration-200 flex items-center gap-2 font-medium disabled:opacity-50 disabled:cursor-not-allowed disabled:transform-none"
+            >
+              {loading ? (
+                <>
+                  <span className="animate-spin">⏳</span>
+                  Generating...
+                </>
+              ) : (
+                <>✨ Generate New Recommendations</>
+              )}
+            </button>
+          </div>
 
-          {error && <p className="mt-4 glass px-4 py-3 text-primary">{error}</p>}
+          {/* Compact Control Grid */}
+          <div className="grid lg:grid-cols-12 gap-4">
+            {/* Mood Section - Takes 7 columns */}
+            <div className="lg:col-span-7 space-y-3">
+              <MoodPicker />
+              <EmotionDetector
+                onMoodDetected={(mood) => {
+                  useRecommendationStore.getState().setMood(mood)
+                  handleGetRecommendations(false, mood)
+                }}
+              />
+            </div>
+            
+            {/* Context Section - Takes 5 columns */}
+            <div className="lg:col-span-5">
+              <TimeWeatherWidget />
+            </div>
+          </div>
         </div>
+
+        {error && <p className="mb-6 p-4 bg-red-50 text-red-600 rounded-lg border border-red-100 text-sm">{error}</p>}
 
         {/* Recommendations Display */}
         {recommendations.length > 0 && (

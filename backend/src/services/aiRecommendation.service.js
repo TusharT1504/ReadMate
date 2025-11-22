@@ -9,7 +9,14 @@ dotenv.config();
 class AIRecommendationService {
   constructor() {
     this.genAI = new GoogleGenerativeAI(process.env.GEMINI_API_KEY);
-    this.model = this.genAI.getGenerativeModel({ model: 'gemini-2.0-flash-001' });
+    this.model = this.genAI.getGenerativeModel({ 
+      model: 'gemini-2.0-flash-001',
+      generationConfig: {
+        temperature: 0.9, // Increase randomness
+        topP: 0.95,
+        topK: 40,
+      }
+    });
   }
 
   /**
@@ -28,20 +35,133 @@ class AIRecommendationService {
       // Step 3: Get AI recommendations
       const aiResponse = await this.getAIRecommendations(prompt);
 
-      // Step 4: Parse book titles from AI response
-      const bookTitles = this.parseBookTitles(aiResponse);
+      // Step 4: Parse JSON response
+      const jsonMatch = aiResponse.match(/\[[\s\S]*\]/);
+      if (!jsonMatch) {
+        throw new Error('Failed to parse JSON from AI response');
+      }
+      
+      const allBooks = JSON.parse(jsonMatch[0]);
+      
+      // Step 5: Shuffle and pick 5 random books from the generated list
+      // This ensures variety even if the AI generates similar lists for similar contexts
+      const shuffled = allBooks.sort(() => 0.5 - Math.random());
+      const selectedBooks = shuffled.slice(0, 5);
+      
+      const bookTitles = selectedBooks.map(b => ({ title: b.title, author: b.author }));
 
-      // Step 5: Fetch full book details from Google Books
+      // Step 6: Fetch full book details from Google Books
       const recommendations = await this.fetchBookDetails(bookTitles);
 
-      // Step 6: Add AI explanations
-      const finalRecommendations = this.addExplanations(recommendations, aiResponse);
+      // Step 7: Add AI explanations and genres
+      const finalRecommendations = recommendations.map((book, index) => {
+        const aiInfo = selectedBooks.find(b => 
+          b.title.toLowerCase().includes(book.title.toLowerCase()) || 
+          book.title.toLowerCase().includes(b.title.toLowerCase())
+        );
+
+        // Merge genres from AI and Google Books
+        let finalGenres = book.genres || [];
+        if (aiInfo && aiInfo.genres && Array.isArray(aiInfo.genres)) {
+          // Combine and deduplicate, putting AI genres first as they are often more specific
+          finalGenres = [...new Set([...aiInfo.genres, ...finalGenres])];
+        }
+
+        return {
+          ...book,
+          genres: finalGenres,
+          why: aiInfo ? aiInfo.reason : 'Recommended based on your reading history and preferences',
+          score: 0.95 - (index * 0.05), // Higher score for earlier recommendations
+          source: 'ai-personalized'
+        };
+      });
 
       console.log(`✅ Generated ${finalRecommendations.length} AI recommendations`);
       return finalRecommendations;
     } catch (error) {
       console.error('Error generating AI recommendations:', error);
       throw error;
+    }
+  }
+
+  /**
+   * Generate random book recommendations for cold start/new users
+   */
+  async getRandomRecommendations() {
+    try {
+      console.log('🎲 Generating random AI recommendations...');
+      
+      const genres = ['Fiction', 'Non-fiction', 'Sci-Fi', 'Mystery', 'Fantasy', 'Biography', 'History', 'Self-help', 'Thriller', 'Romance', 'Horror', 'Philosophy', 'Psychology', 'Business', 'Travel', 'Science'];
+      // Pick 3 random genres to focus on
+      const randomGenres = genres.sort(() => 0.5 - Math.random()).slice(0, 3);
+      
+      // Ask for 30 books to ensure variety
+      const prompt = `You are an expert book curator. Recommend 30 diverse, highly-rated books focusing on these genres: ${randomGenres.join(', ')}, but also include others.
+      
+      INSTRUCTIONS:
+      1. Focus on these genres: ${randomGenres.join(', ')}.
+      2. Include a mix of bestsellers, hidden gems, and modern classics.
+      3. Ensure these books are likely to be found in Google Books.
+      4. Provide a brief, engaging reason why each book is worth reading.
+      5. Provide 3 specific genres for each book (e.g., "Space Opera", "Historical Romance", "Hard Sci-Fi").
+      6. Format the output as a JSON array of objects with 'title', 'author', 'reason', and 'genres' fields.
+      
+      Example format:
+      [
+        { "title": "The Great Gatsby", "author": "F. Scott Fitzgerald", "reason": "A classic tale of the Jazz Age.", "genres": ["Classic Literature", "Historical Fiction", "Tragedy"] }
+      ]
+      `;
+
+      const result = await this.model.generateContent(prompt);
+      const response = await result.response;
+      const text = response.text();
+      
+      // Parse JSON from the response (handling potential markdown code blocks)
+      const jsonMatch = text.match(/\[[\s\S]*\]/);
+      if (!jsonMatch) {
+        throw new Error('Failed to parse JSON from AI response');
+      }
+      
+      const allBooks = JSON.parse(jsonMatch[0]);
+      
+      // Shuffle and pick 5
+      const shuffled = allBooks.sort(() => 0.5 - Math.random());
+      const selectedBooks = shuffled.slice(0, 5);
+      
+      const bookTitles = selectedBooks.map(b => ({ title: b.title, author: b.author }));
+      
+      // Fetch details from Google Books
+      const recommendations = await this.fetchBookDetails(bookTitles);
+      
+      // Add AI explanations and genres
+      const finalRecommendations = recommendations.map((book) => {
+        const aiInfo = selectedBooks.find(b => 
+          b.title.toLowerCase().includes(book.title.toLowerCase()) || 
+          book.title.toLowerCase().includes(b.title.toLowerCase())
+        );
+        
+        // Merge genres from AI and Google Books
+        let finalGenres = book.genres || [];
+        if (aiInfo && aiInfo.genres && Array.isArray(aiInfo.genres)) {
+          // Combine and deduplicate, putting AI genres first
+          finalGenres = [...new Set([...aiInfo.genres, ...finalGenres])];
+        }
+
+        return {
+          ...book,
+          genres: finalGenres,
+          why: aiInfo ? aiInfo.reason : 'A highly recommended read.',
+          score: 80 + Math.floor(Math.random() * 15), // Random score for "random" recommendations
+          source: 'ai-random'
+        };
+      });
+
+      console.log(`✅ Generated ${finalRecommendations.length} random recommendations`);
+      return finalRecommendations;
+
+    } catch (error) {
+      console.error('Error generating random recommendations:', error);
+      return [];
     }
   }
 
@@ -81,7 +201,18 @@ class AIRecommendationService {
         ).join('\n')
       : 'No reading history available';
 
-    const prompt = `You are an expert book recommendation system. Based on the following information, recommend 5 books that would be perfect for this reader.
+    // Add random discovery focus
+    const discoveryModes = [
+      "Focus on hidden gems and underrated books.",
+      "Focus on award-winning masterpieces.",
+      "Focus on books with unique writing styles.",
+      "Focus on books that are perfect for this specific time of day and weather.",
+      "Focus on diverse authors and perspectives.",
+      "Mix well-known bestsellers with obscure finds."
+    ];
+    const randomFocus = discoveryModes[Math.floor(Math.random() * discoveryModes.length)];
+
+    const prompt = `You are an expert book recommendation system. Based on the following information, recommend 20 books that would be perfect for this reader.
 
 USER PROFILE:
 - Age: ${userAge} years old
@@ -98,30 +229,20 @@ CURRENT CONTEXT:
 - Mood: ${mood}
 
 INSTRUCTIONS:
-1. Analyze the reading history to understand the user's preferences
-2. Consider the user's age and current context (time, weather, mood)
-3. Recommend 9 books that match their taste and current situation
-4. Provide ONLY the exact book title and author for each recommendation
-5. Format each recommendation as: "Book Title" by Author Name
-6. After the 9 recommendations, add a "REASONING:" section explaining why each book was recommended
+1. Analyze the reading history to understand the user's preferences.
+2. Consider the user's age and current context (time, weather, mood).
+3. Recommend 20 books that match their taste and current situation.
+4. ${randomFocus}
+5. Ensure variety in the recommendations (mix of genres if appropriate).
+6. Provide a brief reasoning for each recommendation.
+7. Provide 3 specific genres for each book (e.g., "Dystopian Fiction", "Cyberpunk", "Coming of Age").
+8. Format the output as a JSON array of objects with 'title', 'author', 'reason', and 'genres' fields.
 
 Example format:
-1. "The Midnight Library" by Matt Haig
-2. "Atomic Habits" by James Clear
-3. "Project Hail Mary" by Andy Weir
-4. "The House in the Cerulean Sea" by TJ Klune
-5. "Educated" by Tara Westover
-6. "The Seven Husbands of Evelyn Hugo" by Taylor Jenkins Reid
-7. "Where the Crawdads Sing" by Delia Owens
-8. "Circe" by Madeline Miller
-9. "The Silent Patient" by Alex Michaelides
-
-REASONING:
-1. The Midnight Library - [explanation]
-2. Atomic Habits - [explanation]
-...
-
-Now provide your 9 recommendations:`;
+[
+  { "title": "Book Title", "author": "Author Name", "reason": "Reason for recommendation", "genres": ["Genre 1", "Genre 2", "Genre 3"] }
+]
+`;
 
     return prompt;
   }
